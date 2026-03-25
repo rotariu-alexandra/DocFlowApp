@@ -9,6 +9,7 @@ const links = [
   { href: "/", label: "Dashboard" },
   { href: "/create-request", label: "Create Request" },
   { href: "/requests", label: "Requests" },
+  { href: "/my-requests", label: "My Requests" },
 ];
 
 export default function Sidebar() {

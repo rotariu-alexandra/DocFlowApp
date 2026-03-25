@@ -5,6 +5,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import PageHeader from "@/components/PageHeader";
 import RequestsFilters from "@/components/RequestsFilters";
 import RequestCard from "@/components/RequestCard";
+import { useUser } from "@clerk/nextjs";
 
 type RequestItem = {
   _id: string;
@@ -14,6 +15,7 @@ type RequestItem = {
   requestType: string;
   status: string;
   priority: string;
+  createdBy: string;
 };
 
 type PaginationData = {
@@ -36,6 +38,9 @@ export default function RequestsPage() {
   const [departmentFilter, setDepartmentFilter] = useState("");
 
   const debouncedSearch = useDebounce(search, 500);
+
+  const { user } = useUser();
+  const role = user?.publicMetadata?.role as string | undefined;
 
   useEffect(() => {
     fetchRequests(currentPage);
@@ -128,6 +133,7 @@ export default function RequestsPage() {
                 request={req}
                 updatingId={updatingId}
                 onUpdateStatus={updateStatus}
+                role={role}
               />
             ))
           )}

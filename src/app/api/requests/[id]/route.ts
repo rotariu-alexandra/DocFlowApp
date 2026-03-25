@@ -2,6 +2,33 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import RequestModel from "@/models/Request";
 import { requestSchema } from "@/utils/requestValidation";
+import { auth, clerkClient } from "@clerk/nextjs/server";
+import {
+  canStartProcessing,
+  canApproveReject,
+  canEditOwnRequest,
+  canDeleteOwnRequest,
+} from "@/utils/permissions";
+
+async function getCurrentUserRoleAndDepartment() {
+  const { userId } = await auth();
+
+  if (!userId) {
+    return null;
+  }
+
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+
+  const role = user.publicMetadata?.role as string | undefined;
+  const department = user.publicMetadata?.department as string | undefined;
+
+  return {
+    userId,
+    role,
+    department,
+  };
+}
 
 export async function GET(
   req: Request,
@@ -43,7 +70,39 @@ export async function PUT(
   try {
     await connectToDatabase();
 
+    const currentUser = await getCurrentUserRoleAndDepartment();
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await context.params;
+    const existingRequest = await RequestModel.findById(id);
+
+    if (!existingRequest) {
+      return NextResponse.json(
+        { success: false, message: "Request not found" },
+        { status: 404 }
+      );
+    }
+
+    if (
+      !canEditOwnRequest(
+        currentUser.role,
+        existingRequest.createdBy,
+        currentUser.userId,
+        existingRequest.status
+      )
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
 
     const validation = requestSchema.safeParse(body);
@@ -65,18 +124,10 @@ export async function PUT(
       { new: true }
     );
 
-    if (!updatedRequest) {
-      return NextResponse.json(
-        { success: false, message: "Request not found" },
-        { status: 404 }
-      );
-    }
-
     return NextResponse.json({
       success: true,
       data: updatedRequest,
     });
-
   } catch (error) {
     console.error("PUT request error:", error);
 
@@ -94,23 +145,60 @@ export async function PATCH(
   try {
     await connectToDatabase();
 
+    const currentUser = await getCurrentUserRoleAndDepartment();
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await context.params;
     const body = await req.json();
 
-    const updatedRequest = await RequestModel.findByIdAndUpdate(
-      id,
-      {
-        status: body.status,
-      },
-      { new: true }
-    );
+    const existingRequest = await RequestModel.findById(id);
 
-    if (!updatedRequest) {
+    if (!existingRequest) {
       return NextResponse.json(
         { success: false, message: "Request not found" },
         { status: 404 }
       );
     }
+
+    if (body.status === "in_progress" && !canStartProcessing(currentUser.role)) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
+    if (
+      (body.status === "approved" || body.status === "rejected") &&
+      !canApproveReject(currentUser.role)
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
+    if (
+      currentUser.role === "manager" &&
+      currentUser.department &&
+      existingRequest.department !== currentUser.department
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden for this department" },
+        { status: 403 }
+      );
+    }
+
+    const updatedRequest = await RequestModel.findByIdAndUpdate(
+      id,
+      { status: body.status },
+      { new: true }
+    );
 
     return NextResponse.json({
       success: true,
@@ -133,16 +221,40 @@ export async function DELETE(
   try {
     await connectToDatabase();
 
+    const currentUser = await getCurrentUserRoleAndDepartment();
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await context.params;
+    const existingRequest = await RequestModel.findById(id);
 
-    const deletedRequest = await RequestModel.findByIdAndDelete(id);
-
-    if (!deletedRequest) {
+    if (!existingRequest) {
       return NextResponse.json(
         { success: false, message: "Request not found" },
         { status: 404 }
       );
     }
+
+    if (
+      !canDeleteOwnRequest(
+        currentUser.role,
+        existingRequest.createdBy,
+        currentUser.userId,
+        existingRequest.status
+      )
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
+    await RequestModel.findByIdAndDelete(id);
 
     return NextResponse.json({
       success: true,

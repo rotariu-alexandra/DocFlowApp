@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import RequestModel from "@/models/Request";
 import { requestSchema } from "@/utils/requestValidation";
+import { auth } from "@clerk/nextjs/server";
 
 export async function GET(req: Request) {
   try {
@@ -65,6 +66,15 @@ export async function POST(req: Request) {
   try {
     await connectToDatabase();
 
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
 
     const validation = requestSchema.safeParse(body);
@@ -83,7 +93,7 @@ export async function POST(req: Request) {
     const newRequest = await RequestModel.create({
       ...validation.data,
       status: "new",
-      employee: "507f1f77bcf86cd799439011",
+      createdBy: userId,
     });
 
     return NextResponse.json({

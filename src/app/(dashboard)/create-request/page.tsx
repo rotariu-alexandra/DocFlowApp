@@ -15,7 +15,6 @@ type FormData = {
     | "other";
   department: "HR" | "IT" | "Finance" | "Admin" | "Management";
   priority: "low" | "medium" | "high";
-  employee: string;
 };
 
 type FormErrors = {
@@ -56,7 +55,6 @@ export default function CreateRequestPage() {
     requestType: "other",
     department: "Admin",
     priority: "medium",
-    employee: "507f1f77bcf86cd799439011",
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -162,7 +160,6 @@ export default function CreateRequestPage() {
           requestType: "other",
           department: "Admin",
           priority: "medium",
-          employee: "507f1f77bcf86cd799439011",
         });
         setErrors({});
       } else {

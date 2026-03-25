@@ -12,9 +12,8 @@ const RequestSchema = new Schema(
       required: true,
     },
 
-    employee: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+    createdBy: {
+      type: String,
       required: true,
     },
 
@@ -39,15 +38,7 @@ const RequestSchema = new Schema(
 
     status: {
       type: String,
-      enum: [
-        "new",
-        "hr_review",
-        "department_review",
-        "in_progress",
-        "resolved",
-        "approved",
-        "rejected",
-      ],
+      enum: ["new", "in_progress", "approved", "rejected"],
       default: "new",
     },
 

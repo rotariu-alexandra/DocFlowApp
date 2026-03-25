@@ -6,6 +6,13 @@ import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
 import PriorityBadge from "@/components/PriorityBadge";
+import { useUser } from "@clerk/nextjs";
+import {
+  canStartProcessing,
+  canApproveReject,
+  canEditOwnRequest,
+  canDeleteOwnRequest,
+} from "@/utils/permissions";
 
 type RequestDetails = {
   _id: string;
@@ -15,6 +22,7 @@ type RequestDetails = {
   requestType: string;
   status: string;
   priority: string;
+  createdBy: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -30,6 +38,10 @@ export default function RequestDetailsPage({
   const [request, setRequest] = useState<RequestDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+
+  const { user } = useUser();
+  const role = user?.publicMetadata?.role as string | undefined;
+  const currentUserId = user?.id;
 
   useEffect(() => {
     const fetchRequest = async () => {
@@ -174,45 +186,55 @@ export default function RequestDetailsPage({
           Actions
         </h2>
 
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link
-            href={`/requests/${request._id}/edit`}
-            className="inline-flex rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
-          >
-            Edit Request
-          </Link>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {canEditOwnRequest(role, request.createdBy, currentUserId, request.status) && (
+              <Link
+                href={`/requests/${request._id}/edit`}
+                className="inline-flex rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
+              >
+                Edit Request
+              </Link>
+            )}
 
-          <button
-            onClick={handleDelete}
-            className="inline-flex rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-          >
-            Delete Request
-          </button>
+            {canDeleteOwnRequest(role, request.createdBy, currentUserId, request.status) && (
+              <button
+                onClick={handleDelete}
+                className="inline-flex rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete Request
+              </button>
+            )}
 
-          <button
-            onClick={() => updateStatus("in_progress")}
-            disabled={updating}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-          >
-            Start Processing
-          </button>
+            {canStartProcessing(role) && (
+              <button
+                onClick={() => updateStatus("in_progress")}
+                disabled={updating}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+              >
+                Start Processing
+              </button>
+            )}
 
-          <button
-            onClick={() => updateStatus("approved")}
-            disabled={updating}
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
-          >
-            Approve
-          </button>
+            {canApproveReject(role) && (
+              <>
+                <button
+                  onClick={() => updateStatus("approved")}
+                  disabled={updating}
+                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
+                >
+                  Approve
+                </button>
 
-          <button
-            onClick={() => updateStatus("rejected")}
-            disabled={updating}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
-          >
-            Reject
-          </button>
-        </div>
+                <button
+                  onClick={() => updateStatus("rejected")}
+                  disabled={updating}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+                >
+                  Reject
+                </button>
+              </>
+            )}
+          </div>
       </div>
     </div>
   );

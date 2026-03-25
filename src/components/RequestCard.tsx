@@ -1,6 +1,11 @@
 import Link from "next/link";
 import StatusBadge from "@/components/StatusBadge";
 import PriorityBadge from "@/components/PriorityBadge";
+import {
+  canStartProcessing,
+  canApproveReject,
+} from "@/utils/permissions";
+
 
 type RequestCardProps = {
   request: {
@@ -14,12 +19,14 @@ type RequestCardProps = {
   };
   updatingId: string | null;
   onUpdateStatus: (id: string, status: string) => void;
+  role?: string;
 };
 
 export default function RequestCard({
   request,
   updatingId,
   onUpdateStatus,
+  role,
 }: RequestCardProps) {
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-900">
@@ -45,31 +52,37 @@ export default function RequestCard({
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-3">
-        <button
-          onClick={() => onUpdateStatus(request._id, "in_progress")}
-          disabled={updatingId === request._id}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-        >
-          Start Processing
-        </button>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {canStartProcessing(role) && (
+              <button
+                onClick={() => onUpdateStatus(request._id, "in_progress")}
+                disabled={updatingId === request._id}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+              >
+                Start Processing
+              </button>
+            )}
 
-        <button
-          onClick={() => onUpdateStatus(request._id, "approved")}
-          disabled={updatingId === request._id}
-          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
-        >
-          Approve
-        </button>
+            {canApproveReject(role) && (
+              <>
+                <button
+                  onClick={() => onUpdateStatus(request._id, "approved")}
+                  disabled={updatingId === request._id}
+                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
+                >
+                  Approve
+                </button>
 
-        <button
-          onClick={() => onUpdateStatus(request._id, "rejected")}
-          disabled={updatingId === request._id}
-          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
-        >
-          Reject
-        </button>
-      </div>
+                <button
+                  onClick={() => onUpdateStatus(request._id, "rejected")}
+                  disabled={updatingId === request._id}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+                >
+                  Reject
+                </button>
+              </>
+            )}
+         </div>
     </div>
   );
 }

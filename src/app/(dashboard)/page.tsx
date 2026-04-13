@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
 import PriorityBadge from "@/components/PriorityBadge";
+import DashboardCharts from "@/components/DashboardCharts";
 
 type RequestItem = {
   _id: string;
@@ -14,12 +15,31 @@ type RequestItem = {
   priority: string;
 };
 
+type DepartmentStatsItem = {
+  department: string;
+  count: number;
+};
+
+type StatusStatsItem = {
+  status: string;
+  count: number;
+};
+
+type DailyStatsItem = {
+  date: string;
+  count: number;
+};
+
 type DashboardData = {
   totalRequests: number;
   newRequests: number;
+  inProgressRequests: number;
   approvedRequests: number;
   rejectedRequests: number;
   recentRequests: RequestItem[];
+  departmentStats: DepartmentStatsItem[];
+  statusStats: StatusStatsItem[];
+  dailyStats: DailyStatsItem[];
 };
 
 export default function HomePage() {
@@ -46,16 +66,25 @@ export default function HomePage() {
   };
 
   if (loading) {
-    return <p className="p-4 text-gray-500 dark:text-gray-400">Loading dashboard...</p>;
+    return (
+      <p className="p-4 text-gray-500 dark:text-gray-400">
+        Loading dashboard...
+      </p>
+    );
   }
 
   if (!dashboardData) {
-    return <p className="p-4 text-gray-500 dark:text-gray-400">No dashboard data available.</p>;
+    return (
+      <p className="p-4 text-gray-500 dark:text-gray-400">
+        No dashboard data available.
+      </p>
+    );
   }
 
   const stats = [
     { title: "Total Requests", value: dashboardData.totalRequests },
     { title: "New Requests", value: dashboardData.newRequests },
+    { title: "In Progress", value: dashboardData.inProgressRequests },
     { title: "Approved", value: dashboardData.approvedRequests },
     { title: "Rejected", value: dashboardData.rejectedRequests },
   ];
@@ -67,16 +96,23 @@ export default function HomePage() {
         description="Monitorizează cererile și gestionează fluxul documentelor interne."
       />
 
-      <div>
+      <div className="flex flex-wrap gap-3">
         <Link
           href="/create-request"
           className="inline-flex rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
         >
           Create Request
         </Link>
+
+        <Link
+          href="/my-requests"
+          className="inline-flex rounded-lg bg-gray-200 px-5 py-3 text-sm font-semibold text-gray-800 transition hover:bg-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+        >
+          My Requests
+        </Link>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {stats.map((stat) => (
           <div
             key={stat.title}
@@ -91,6 +127,12 @@ export default function HomePage() {
           </div>
         ))}
       </section>
+
+      <DashboardCharts
+        departmentStats={dashboardData.departmentStats}
+        statusStats={dashboardData.statusStats}
+        dailyStats={dashboardData.dailyStats}
+      />
 
       <section className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-900">
         <div className="mb-5 flex items-center justify-between">

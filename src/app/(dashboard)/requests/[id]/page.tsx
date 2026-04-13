@@ -42,6 +42,9 @@ export default function RequestDetailsPage({
   const { user } = useUser();
   const role = user?.publicMetadata?.role as string | undefined;
   const currentUserId = user?.id;
+  const currentUserDepartment = user?.publicMetadata?.department as
+    | string
+    | undefined;
 
   useEffect(() => {
     const fetchRequest = async () => {
@@ -113,22 +116,30 @@ export default function RequestDetailsPage({
   };
 
   if (loading) {
-    return <p className="p-4 text-gray-500 dark:text-gray-400">Loading request details...</p>;
+    return (
+      <p className="p-4 text-gray-500 dark:text-gray-400">
+        Loading request details...
+      </p>
+    );
   }
 
   if (!request) {
-    return <p className="p-4 text-gray-500 dark:text-gray-400">Request not found.</p>;
+    return (
+      <p className="p-4 text-gray-500 dark:text-gray-400">
+        Request not found.
+      </p>
+    );
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <Link
-          href="/requests"
+        <button
+          onClick={() => router.back()}
           className="text-sm font-medium text-blue-600 hover:underline"
         >
-          ← Back to Requests
-        </Link>
+          ← Back
+        </button>
       </div>
 
       <PageHeader
@@ -170,6 +181,15 @@ export default function RequestDetailsPage({
             </p>
           </div>
 
+          <div>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Created By
+            </p>
+            <p className="mt-1 text-base text-gray-800 dark:text-gray-100">
+              {request.createdBy}
+            </p>
+          </div>
+
           <div className="md:col-span-2">
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
               Description
@@ -186,36 +206,51 @@ export default function RequestDetailsPage({
           Actions
         </h2>
 
-          <div className="mt-4 flex flex-wrap gap-3">
-            {canEditOwnRequest(role, request.createdBy, currentUserId, request.status) && (
-              <Link
-                href={`/requests/${request._id}/edit`}
-                className="inline-flex rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
-              >
-                Edit Request
-              </Link>
-            )}
+        <div className="mt-4 flex flex-wrap gap-3">
+          {canEditOwnRequest(
+            role,
+            request.createdBy,
+            currentUserId,
+            request.status
+          ) && (
+            <Link
+              href={`/requests/${request._id}/edit`}
+              className="inline-flex rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
+            >
+              Edit Request
+            </Link>
+          )}
 
-            {canDeleteOwnRequest(role, request.createdBy, currentUserId, request.status) && (
-              <button
-                onClick={handleDelete}
-                className="inline-flex rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-              >
-                Delete Request
-              </button>
-            )}
+          {canDeleteOwnRequest(
+            role,
+            request.createdBy,
+            currentUserId,
+            request.status
+          ) && (
+            <button
+              onClick={handleDelete}
+              className="inline-flex rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            >
+              Delete Request
+            </button>
+          )}
 
-            {canStartProcessing(role) && (
-              <button
-                onClick={() => updateStatus("in_progress")}
-                disabled={updating}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-              >
-                Start Processing
-              </button>
-            )}
+          {request.status === "new" && canStartProcessing(role) && (
+            <button
+              onClick={() => updateStatus("in_progress")}
+              disabled={updating}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+            >
+              Start Processing
+            </button>
+          )}
 
-            {canApproveReject(role) && (
+          {request.status === "in_progress" &&
+            canApproveReject(
+              role,
+              request.department,
+              currentUserDepartment
+            ) && (
               <>
                 <button
                   onClick={() => updateStatus("approved")}
@@ -234,7 +269,7 @@ export default function RequestDetailsPage({
                 </button>
               </>
             )}
-          </div>
+        </div>
       </div>
     </div>
   );

@@ -4,8 +4,23 @@ export function canStartProcessing(role?: string) {
   return role === "hr" || role === "admin";
 }
 
-export function canApproveReject(role?: string) {
-  return role === "manager" || role === "admin";
+export function canApproveReject(
+  role?: string,
+  requestDepartment?: string,
+  currentUserDepartment?: string
+) {
+  if (role === "admin") return true;
+  if (role === "manager") return true;
+
+  if (
+    role === "hr" &&
+    requestDepartment === "HR" &&
+    currentUserDepartment === "HR"
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 export function canManageAllRequests(role?: string) {

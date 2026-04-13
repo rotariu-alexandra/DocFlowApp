@@ -39,12 +39,22 @@ export default function RequestsPage() {
 
   const debouncedSearch = useDebounce(search, 500);
 
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const role = user?.publicMetadata?.role as string | undefined;
+  const currentUserDepartment = user?.publicMetadata?.department as
+    | string
+    | undefined;
 
   useEffect(() => {
+    if (!isLoaded) return;
     fetchRequests(currentPage);
-  }, [currentPage, debouncedSearch, statusFilter, departmentFilter]);
+  }, [
+    currentPage,
+    debouncedSearch,
+    statusFilter,
+    departmentFilter,
+    isLoaded,
+  ]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -100,6 +110,31 @@ export default function RequestsPage() {
     }
   };
 
+  if (!isLoaded) {
+    return (
+      <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-900">
+        <p className="text-gray-500 dark:text-gray-400">Loading...</p>
+      </div>
+    );
+  }
+
+  if (role === "employee") {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Requests"
+          description="Această pagină este destinată procesării cererilor."
+        />
+
+        <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-900">
+          <p className="text-gray-500 dark:text-gray-400">
+            You can manage your own requests from the "My Requests" page.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -118,13 +153,17 @@ export default function RequestsPage() {
 
       {loading ? (
         <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-900">
-          <p className="text-gray-500 dark:text-gray-400">Loading requests...</p>
+          <p className="text-gray-500 dark:text-gray-400">
+            Loading requests...
+          </p>
         </div>
       ) : (
         <div className="grid gap-4">
           {requests.length === 0 ? (
             <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-900">
-              <p className="text-gray-500 dark:text-gray-400">No requests found.</p>
+              <p className="text-gray-500 dark:text-gray-400">
+                No requests found.
+              </p>
             </div>
           ) : (
             requests.map((req) => (
@@ -134,6 +173,7 @@ export default function RequestsPage() {
                 updatingId={updatingId}
                 onUpdateStatus={updateStatus}
                 role={role}
+                currentUserDepartment={currentUserDepartment}
               />
             ))
           )}
@@ -165,4 +205,4 @@ export default function RequestsPage() {
       )}
     </div>
   );
-} 
+}

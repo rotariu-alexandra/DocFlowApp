@@ -62,7 +62,6 @@ export async function GET(
   }
 }
 
-
 export async function PUT(
   req: Request,
   context: { params: Promise<{ id: string }> }
@@ -175,7 +174,11 @@ export async function PATCH(
 
     if (
       (body.status === "approved" || body.status === "rejected") &&
-      !canApproveReject(currentUser.role)
+      !canApproveReject(
+        currentUser.role,
+        existingRequest.department,
+        currentUser.department
+      )
     ) {
       return NextResponse.json(
         { success: false, message: "Forbidden" },

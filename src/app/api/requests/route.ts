@@ -2,24 +2,47 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import RequestModel from "@/models/Request";
 import { requestSchema } from "@/utils/requestValidation";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
+
+async function getCurrentUserRoleAndDepartment() {
+  const { userId } = await auth();
+
+  if (!userId) return null;
+
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+
+  return {
+    userId,
+    role: user.publicMetadata?.role as string | undefined,
+    department: user.publicMetadata?.department as string | undefined,
+  };
+}
 
 export async function GET(req: Request) {
   try {
     await connectToDatabase();
 
+    const currentUser = await getCurrentUserRoleAndDepartment();
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
 
     const page = Number(searchParams.get("page")) || 1;
     const limit = Number(searchParams.get("limit")) || 5;
-
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "";
     const department = searchParams.get("department") || "";
 
     const skip = (page - 1) * limit;
 
-    const query: any = {};
+    const query: Record<string, any> = {};
 
     if (search) {
       query.title = { $regex: search, $options: "i" };
@@ -29,12 +52,15 @@ export async function GET(req: Request) {
       query.status = status;
     }
 
-    if (department) {
+    if (currentUser.role === "employee") {
+      query._id = null;
+    } else if (currentUser.role === "manager") {
+      query.department = currentUser.department;
+    } else if (department) {
       query.department = department;
     }
 
     const totalItems = await RequestModel.countDocuments(query);
-
     const totalPages = Math.ceil(totalItems / limit);
 
     const requests = await RequestModel.find(query)
@@ -53,7 +79,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error("GET requests error:", error);
 
     return NextResponse.json(
       { success: false, message: "Failed to fetch requests" },

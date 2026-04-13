@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
 import PriorityBadge from "@/components/PriorityBadge";
+import RequestHistory from "@/components/RequestHistory";
 import { useUser } from "@clerk/nextjs";
 import {
   canStartProcessing,
@@ -40,7 +41,10 @@ export default function RequestDetailsPage({
   const [updating, setUpdating] = useState(false);
 
   const { user } = useUser();
-  const role = user?.publicMetadata?.role as string | undefined;
+  const role =
+    typeof user?.publicMetadata?.role === "string"
+      ? user.publicMetadata.role.toLowerCase()
+      : undefined;
   const currentUserId = user?.id;
   const currentUserDepartment = user?.publicMetadata?.department as
     | string
@@ -177,7 +181,7 @@ export default function RequestDetailsPage({
               Created At
             </p>
             <p className="mt-1 text-base text-gray-800 dark:text-gray-100">
-              {new Date(request.createdAt).toLocaleString()}
+              {new Date(request.createdAt).toLocaleString("ro-RO")}
             </p>
           </div>
 
@@ -213,13 +217,13 @@ export default function RequestDetailsPage({
             currentUserId,
             request.status
           ) && (
-            <Link
-              href={`/requests/${request._id}/edit`}
-              className="inline-flex rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
-            >
-              Edit Request
-            </Link>
-          )}
+              <Link
+                href={`/requests/${request._id}/edit`}
+                className="inline-flex rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
+              >
+                Edit Request
+              </Link>
+            )}
 
           {canDeleteOwnRequest(
             role,
@@ -227,13 +231,13 @@ export default function RequestDetailsPage({
             currentUserId,
             request.status
           ) && (
-            <button
-              onClick={handleDelete}
-              className="inline-flex rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-            >
-              Delete Request
-            </button>
-          )}
+              <button
+                onClick={handleDelete}
+                className="inline-flex rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete Request
+              </button>
+            )}
 
           {request.status === "new" && canStartProcessing(role) && (
             <button
@@ -271,6 +275,8 @@ export default function RequestDetailsPage({
             )}
         </div>
       </div>
+
+      <RequestHistory requestId={request._id} />
     </div>
   );
 }

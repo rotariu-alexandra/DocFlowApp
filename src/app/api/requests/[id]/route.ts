@@ -9,6 +9,7 @@ import {
   canEditOwnRequest,
   canDeleteOwnRequest,
 } from "@/utils/permissions";
+import { createHistoryEntry } from "@/lib/history";
 
 async function getCurrentUserRoleAndDepartment() {
   const { userId } = await auth();
@@ -20,7 +21,11 @@ async function getCurrentUserRoleAndDepartment() {
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
 
-  const role = user.publicMetadata?.role as string | undefined;
+  const role =
+    typeof user.publicMetadata?.role === "string"
+      ? user.publicMetadata.role.toLowerCase()
+      : undefined;
+
   const department = user.publicMetadata?.department as string | undefined;
 
   return {
@@ -123,6 +128,16 @@ export async function PUT(
       { new: true }
     );
 
+    await createHistoryEntry({
+      requestId: id,
+      action: "updated",
+      performedBy: currentUser.userId,
+      performedByRole: currentUser.role,
+      details: {
+        message: "Request details updated",
+      },
+    });
+
     return NextResponse.json({
       success: true,
       data: updatedRequest,
@@ -197,11 +212,25 @@ export async function PATCH(
       );
     }
 
+    const oldStatus = existingRequest.status;
+
     const updatedRequest = await RequestModel.findByIdAndUpdate(
       id,
       { status: body.status },
       { new: true }
     );
+
+    await createHistoryEntry({
+      requestId: id,
+      action: "status_changed",
+      performedBy: currentUser.userId,
+      performedByRole: currentUser.role,
+      details: {
+        message: "Request status changed",
+        from: oldStatus,
+        to: body.status,
+      },
+    });
 
     return NextResponse.json({
       success: true,
@@ -256,6 +285,17 @@ export async function DELETE(
         { status: 403 }
       );
     }
+
+    await createHistoryEntry({
+      requestId: id,
+      action: "deleted",
+      performedBy: currentUser.userId,
+      performedByRole: currentUser.role,
+      details: {
+        message: "Request deleted",
+        title: existingRequest.title,
+      },
+    });
 
     await RequestModel.findByIdAndDelete(id);
 

@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import RequestModel from "@/models/Request";
 import { requestSchema } from "@/utils/requestValidation";
 import { auth, clerkClient } from "@clerk/nextjs/server";
+import { createHistoryEntry } from "@/lib/history";
 
 async function getCurrentUserRoleAndDepartment() {
   const { userId } = await auth();
@@ -14,7 +15,10 @@ async function getCurrentUserRoleAndDepartment() {
 
   return {
     userId,
-    role: user.publicMetadata?.role as string | undefined,
+    role:
+      typeof user.publicMetadata?.role === "string"
+        ? user.publicMetadata.role.toLowerCase()
+        : undefined,
     department: user.publicMetadata?.department as string | undefined,
   };
 }
@@ -92,9 +96,9 @@ export async function POST(req: Request) {
   try {
     await connectToDatabase();
 
-    const { userId } = await auth();
+    const currentUser = await getCurrentUserRoleAndDepartment();
 
-    if (!userId) {
+    if (!currentUser?.userId) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
         { status: 401 }
@@ -119,7 +123,19 @@ export async function POST(req: Request) {
     const newRequest = await RequestModel.create({
       ...validation.data,
       status: "new",
-      createdBy: userId,
+      createdBy: currentUser.userId,
+    });
+
+    await createHistoryEntry({
+      requestId: newRequest._id.toString(),
+      action: "created",
+      performedBy: currentUser.userId,
+      performedByRole: currentUser.role,
+      details: {
+        message: "Request created",
+        title: newRequest.title,
+        status: newRequest.status,
+      },
     });
 
     return NextResponse.json({

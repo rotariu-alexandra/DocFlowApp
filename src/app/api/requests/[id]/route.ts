@@ -10,6 +10,7 @@ import {
   canDeleteOwnRequest,
 } from "@/utils/permissions";
 import { createHistoryEntry } from "@/lib/history";
+import { createNotification } from "@/lib/notifications";
 
 async function getCurrentUserRoleAndDepartment() {
   const { userId } = await auth();
@@ -41,6 +42,15 @@ export async function GET(
 ) {
   try {
     await connectToDatabase();
+
+    const currentUser = await getCurrentUserRoleAndDepartment();
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
     const { id } = await context.params;
 
@@ -180,6 +190,23 @@ export async function PATCH(
       );
     }
 
+
+    const isSelfAction =
+      existingRequest.createdBy === currentUser.userId &&
+      currentUser.role !== "admin";
+
+    if (
+      isSelfAction &&
+      (body.status === "approved" ||
+        body.status === "rejected" ||
+        body.status === "in_progress")
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Nu poți acționa pe propria cerere." },
+        { status: 403 }
+      );
+    }
+
     if (body.status === "in_progress" && !canStartProcessing(currentUser.role)) {
       return NextResponse.json(
         { success: false, message: "Forbidden" },
@@ -231,6 +258,36 @@ export async function PATCH(
         to: body.status,
       },
     });
+
+    if (body.status === "in_progress") {
+      await createNotification({
+        userId: existingRequest.createdBy,
+        title: "Request in progress",
+        message: "Your request is now being processed.",
+        type: "info",
+        link: `/requests/${id}`,
+      });
+    }
+
+    if (body.status === "approved") {
+      await createNotification({
+        userId: existingRequest.createdBy,
+        title: "Request approved",
+        message: "Your request has been approved.",
+        type: "success",
+        link: `/requests/${id}`,
+      });
+    }
+
+    if (body.status === "rejected") {
+      await createNotification({
+        userId: existingRequest.createdBy,
+        title: "Request rejected",
+        message: "Your request has been rejected.",
+        type: "warning",
+        link: `/requests/${id}`,
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -307,7 +364,7 @@ export async function DELETE(
     console.error("DELETE request error:", error);
 
     return NextResponse.json(
-      { success: false, message: "Failed to delete request" },
+      { success: false, message: "Failed to update request" },
       { status: 500 }
     );
   }

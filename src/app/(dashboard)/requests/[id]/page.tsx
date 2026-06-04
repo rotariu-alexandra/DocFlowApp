@@ -23,7 +23,7 @@ type RequestDetails = {
   requestType: string;
   status: string;
   priority: string;
-  createdBy: string;
+  createdBy: string; // userId Clerk
   createdAt: string;
   updatedAt: string;
 };
@@ -37,6 +37,7 @@ export default function RequestDetailsPage({
   const { id } = use(params);
 
   const [request, setRequest] = useState<RequestDetails | null>(null);
+  const [createdByName, setCreatedByName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
@@ -58,6 +59,15 @@ export default function RequestDetailsPage({
 
         if (data.success) {
           setRequest(data.data);
+
+          // FIX 5: rezolvăm numele creatorului din API-ul dedicat
+          const userRes = await fetch(
+            `/api/users/${data.data.createdBy}/name`
+          );
+          const userData = await userRes.json();
+          if (userData.success) {
+            setCreatedByName(userData.name);
+          }
         }
       } catch (error) {
         console.error("Fetch request details error:", error);
@@ -87,6 +97,8 @@ export default function RequestDetailsPage({
 
       if (data.success) {
         setRequest(data.data);
+      } else {
+        alert(data.message || "Eroare la actualizarea statusului.");
       }
     } catch (error) {
       console.error("Update request status error:", error);
@@ -189,8 +201,9 @@ export default function RequestDetailsPage({
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
               Created By
             </p>
+            {/* FIX 5: afișăm numele real în loc de ID-ul Clerk */}
             <p className="mt-1 text-base text-gray-800 dark:text-gray-100">
-              {request.createdBy}
+              {createdByName || "—"}
             </p>
           </div>
 

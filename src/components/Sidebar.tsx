@@ -6,13 +6,22 @@ import { useEffect, useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { UserButton, useUser } from "@clerk/nextjs";
 
-const links = [
-  { href: "/", label: "Dashboard" },
-  { href: "/create-request", label: "Create Request" },
-  { href: "/requests", label: "Requests" },
-  { href: "/my-requests", label: "My Requests" },
-  { href: "/notifications", label: "Notifications" },
-];
+// Linkuri vizibile pentru fiecare rol
+const getLinksByRole = (role: string | undefined) => {
+  const base = [
+    { href: "/", label: "Dashboard" },
+    { href: "/create-request", label: "Create Request" },
+    { href: "/my-requests", label: "My Requests" },
+    { href: "/notifications", label: "Notifications" },
+  ];
+
+  // Requests (lista generala) e vizibila doar pentru hr, manager, admin
+  if (role && ["hr", "manager", "admin"].includes(role)) {
+    base.splice(2, 0, { href: "/requests", label: "Requests" });
+  }
+
+  return base;
+};
 
 type NotificationItem = {
   _id: string;
@@ -21,27 +30,25 @@ type NotificationItem = {
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { user, isLoaded } = useUser(); // 👈 adaugă isLoaded
+  const { user, isLoaded } = useUser();
   const role =
     typeof user?.publicMetadata?.role === "string"
       ? user.publicMetadata.role.toLowerCase()
       : undefined;
 
+  const links = getLinksByRole(role);
+
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchUnread = async () => {
     try {
-      const res = await fetch("/api/notifications", {
-        cache: "no-store",
-      });
-
+      const res = await fetch("/api/notifications", { cache: "no-store" });
       const data = await res.json();
 
       if (data.success) {
         const unread = (data.data as NotificationItem[]).filter(
-          (notification) => !notification.isRead
+          (n) => !n.isRead
         );
-
         setUnreadCount(unread.length);
       }
     } catch (error) {
@@ -50,26 +57,43 @@ export default function Sidebar() {
   };
 
   useEffect(() => {
-    if (!isLoaded || !user) return; // 👈 nu face fetch până Clerk nu e gata
+    if (!isLoaded || !user) return;
 
+    // Fetch initial
     fetchUnread();
 
+    // SSE — înlocuiește polling-ul de 10s
+    const eventSource = new EventSource("/api/notifications/stream");
+
+    eventSource.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload.type === "notification") {
+          // A venit o notificare nouă — re-fetch pentru count actualizat
+          fetchUnread();
+        }
+      } catch {
+        // ping sau mesaj fără JSON valid — ignorăm
+      }
+    };
+
+    eventSource.onerror = () => {
+      // Dacă SSE pică, închidem — browser-ul va reconecta automat
+      eventSource.close();
+    };
+
+    // Actualizare badge când userul marchează ca citit din NotificationList
     const handleNotificationsUpdated = () => {
       fetchUnread();
     };
-
     window.addEventListener("notifications-updated", handleNotificationsUpdated);
 
-    const interval = setInterval(() => {
-      fetchUnread();
-    }, 10000);
-
     return () => {
+      eventSource.close();
       window.removeEventListener(
         "notifications-updated",
         handleNotificationsUpdated
       );
-      clearInterval(interval);
     };
   }, [isLoaded, user?.id]);
 
@@ -93,8 +117,8 @@ export default function Sidebar() {
               key={link.href}
               href={link.href}
               className={`flex items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition ${isActive
-                ? "bg-blue-600 text-white"
-                : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
                 }`}
             >
               <span>{link.label}</span>

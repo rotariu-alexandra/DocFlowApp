@@ -11,6 +11,7 @@ import {
 } from "@/utils/permissions";
 import { createHistoryEntry } from "@/lib/history";
 import { createNotification } from "@/lib/notifications";
+import { notifyUser } from "@/app/api/notifications/stream/route";
 
 async function getCurrentUserRoleAndDepartment() {
   const { userId } = await auth();
@@ -43,6 +44,7 @@ export async function GET(
   try {
     await connectToDatabase();
 
+    // FIX 3: verificăm autentificarea pe GET
     const currentUser = await getCurrentUserRoleAndDepartment();
 
     if (!currentUser) {
@@ -190,7 +192,7 @@ export async function PATCH(
       );
     }
 
-
+    // FIX 2: niciun utilizator nu poate acționa pe propria cerere (cu excepția admin)
     const isSelfAction =
       existingRequest.createdBy === currentUser.userId &&
       currentUser.role !== "admin";
@@ -259,6 +261,7 @@ export async function PATCH(
       },
     });
 
+    // Creăm notificarea în DB și trimitem push SSE instantaneu
     if (body.status === "in_progress") {
       await createNotification({
         userId: existingRequest.createdBy,
@@ -267,6 +270,7 @@ export async function PATCH(
         type: "info",
         link: `/requests/${id}`,
       });
+      notifyUser(existingRequest.createdBy);
     }
 
     if (body.status === "approved") {
@@ -277,6 +281,7 @@ export async function PATCH(
         type: "success",
         link: `/requests/${id}`,
       });
+      notifyUser(existingRequest.createdBy);
     }
 
     if (body.status === "rejected") {
@@ -287,6 +292,7 @@ export async function PATCH(
         type: "warning",
         link: `/requests/${id}`,
       });
+      notifyUser(existingRequest.createdBy);
     }
 
     return NextResponse.json({
@@ -364,7 +370,7 @@ export async function DELETE(
     console.error("DELETE request error:", error);
 
     return NextResponse.json(
-      { success: false, message: "Failed to update request" },
+      { success: false, message: "Failed to delete request" },
       { status: 500 }
     );
   }

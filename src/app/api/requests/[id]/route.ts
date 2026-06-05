@@ -87,56 +87,50 @@ export async function PUT(
     await connectToDatabase();
 
     const currentUser = await getCurrentUserRoleAndDepartment();
-
     if (!currentUser) {
-      return NextResponse.json(
-        { success: false, message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await context.params;
     const existingRequest = await RequestModel.findById(id);
 
     if (!existingRequest) {
-      return NextResponse.json(
-        { success: false, message: "Request not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, message: "Request not found" }, { status: 404 });
     }
 
-    if (
-      !canEditOwnRequest(
-        currentUser.role,
-        existingRequest.createdBy,
-        currentUser.userId,
-        existingRequest.status
-      )
-    ) {
-      return NextResponse.json(
-        { success: false, message: "Forbidden" },
-        { status: 403 }
-      );
+    if (!canEditOwnRequest(currentUser.role, existingRequest.createdBy, currentUser.userId, existingRequest.status)) {
+      return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
     }
 
     const body = await req.json();
 
-    const validation = requestSchema.safeParse(body);
+    const validation = requestSchema.safeParse({
+      title: body.title,
+      description: body.description,
+      requestType: body.requestType,
+      department: body.department,
+      priority: body.priority,
+    });
 
     if (!validation.success) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Validation failed",
-          errors: validation.error.flatten(),
-        },
+        { success: false, message: "Validation failed", errors: validation.error.flatten() },
         { status: 400 }
       );
     }
 
+    // Acceptăm attachments din body (lista finală trimisă de client)
+    // Dacă nu e trimisă, păstrăm ce era înainte
+    const attachments = Array.isArray(body.attachments)
+      ? body.attachments.map((file: { uploadedAt?: string;[key: string]: unknown }) => ({
+        ...file,
+        uploadedAt: file.uploadedAt ? new Date(file.uploadedAt) : new Date(),
+      }))
+      : existingRequest.attachments;
+
     const updatedRequest = await RequestModel.findByIdAndUpdate(
       id,
-      validation.data,
+      { ...validation.data, attachments },
       { new: true }
     );
 
@@ -145,22 +139,13 @@ export async function PUT(
       action: "updated",
       performedBy: currentUser.userId,
       performedByRole: currentUser.role,
-      details: {
-        message: "Request details updated",
-      },
+      details: { message: "Request details updated" },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: updatedRequest,
-    });
+    return NextResponse.json({ success: true, data: updatedRequest });
   } catch (error) {
     console.error("PUT request error:", error);
-
-    return NextResponse.json(
-      { success: false, message: "Failed to update request" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: "Failed to update request" }, { status: 500 });
   }
 }
 

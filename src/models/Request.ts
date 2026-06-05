@@ -1,21 +1,23 @@
 import mongoose, { Schema, model, models } from "mongoose";
 
+const AttachmentSchema = new Schema(
+  {
+    fileName: { type: String, required: true },
+    fileUrl: { type: String, required: true },
+    fileKey: { type: String, required: true },
+    fileType: { type: String, required: true },
+    fileSize: { type: Number, required: true },
+    uploadedBy: { type: String, required: true },
+    uploadedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const RequestSchema = new Schema(
   {
-    title: {
-      type: String,
-      required: true,
-    },
-
-    description: {
-      type: String,
-      required: true,
-    },
-
-    createdBy: {
-      type: String,
-      required: true,
-    },
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+    createdBy: { type: String, required: true },
 
     requestType: {
       type: String,
@@ -47,10 +49,13 @@ const RequestSchema = new Schema(
       enum: ["low", "medium", "high"],
       default: "medium",
     },
+
+    attachments: {
+      type: [AttachmentSchema],
+      default: [],
+    },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 const Request = models.Request || model("Request", RequestSchema);

@@ -139,7 +139,7 @@ export default function RequestsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Requests"
-        description="Vizualizează și gestionează toate cererile din sistem."
+        description="View and manage all system requests."
       />
 
       <RequestsFilters

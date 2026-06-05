@@ -97,7 +97,7 @@ export default function MyRequestsPage() {
     <div className="space-y-6">
       <PageHeader
         title="My Requests"
-        description="Vizualizează cererile create de tine și gestionează-le cât timp au statusul new."
+        description="View the requests you created and manage them while they have the status NEW."
       />
 
       <RequestsFilters
@@ -106,7 +106,7 @@ export default function MyRequestsPage() {
         departmentFilter=""
         onSearchChange={setSearch}
         onStatusChange={setStatusFilter}
-        onDepartmentChange={() => {}}
+        onDepartmentChange={() => { }}
         hideDepartmentFilter
       />
 

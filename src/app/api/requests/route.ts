@@ -4,10 +4,24 @@ import RequestModel from "@/models/Request";
 import { requestSchema } from "@/utils/requestValidation";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { createHistoryEntry } from "@/lib/history";
+import { z } from "zod";
+
+const attachmentSchema = z.object({
+  fileName: z.string().min(1),
+  fileUrl: z.string().url(),
+  fileKey: z.string().min(1),
+  fileType: z.string().min(1),
+  fileSize: z.number().positive(),
+  uploadedBy: z.string(),          // ← FIX: permite și string gol
+  uploadedAt: z.string().optional(),
+});
+
+const createRequestSchema = requestSchema.extend({
+  attachments: z.array(attachmentSchema).optional(),
+});
 
 async function getCurrentUserRoleAndDepartment() {
   const { userId } = await auth();
-
   if (!userId) return null;
 
   const client = await clerkClient();
@@ -28,7 +42,6 @@ export async function GET(req: Request) {
     await connectToDatabase();
 
     const currentUser = await getCurrentUserRoleAndDepartment();
-
     if (!currentUser) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
@@ -37,24 +50,17 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-
     const page = Number(searchParams.get("page")) || 1;
     const limit = Number(searchParams.get("limit")) || 5;
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "";
     const department = searchParams.get("department") || "";
-
     const skip = (page - 1) * limit;
 
-    const query: Record<string, any> = {};
+    const query: Record<string, unknown> = {};
 
-    if (search) {
-      query.title = { $regex: search, $options: "i" };
-    }
-
-    if (status) {
-      query.status = status;
-    }
+    if (search) query.title = { $regex: search, $options: "i" };
+    if (status) query.status = status;
 
     if (currentUser.role === "employee") {
       query._id = null;
@@ -75,16 +81,10 @@ export async function GET(req: Request) {
     return NextResponse.json({
       success: true,
       data: requests,
-      pagination: {
-        currentPage: page,
-        totalPages,
-        totalItems,
-        limit,
-      },
+      pagination: { currentPage: page, totalPages, totalItems, limit },
     });
   } catch (error) {
     console.error("GET requests error:", error);
-
     return NextResponse.json(
       { success: false, message: "Failed to fetch requests" },
       { status: 500 }
@@ -97,7 +97,6 @@ export async function POST(req: Request) {
     await connectToDatabase();
 
     const currentUser = await getCurrentUserRoleAndDepartment();
-
     if (!currentUser?.userId) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
@@ -106,8 +105,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-
-    const validation = requestSchema.safeParse(body);
+    const validation = createRequestSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(
@@ -120,10 +118,22 @@ export async function POST(req: Request) {
       );
     }
 
+    // FIX: dacă uploadedBy e gol, punem userId-ul curent
+    const attachments = (validation.data.attachments || []).map((file) => ({
+      ...file,
+      uploadedBy: file.uploadedBy || currentUser.userId,
+      uploadedAt: file.uploadedAt ? new Date(file.uploadedAt) : new Date(),
+    }));
+
     const newRequest = await RequestModel.create({
-      ...validation.data,
+      title: validation.data.title,
+      description: validation.data.description,
+      requestType: validation.data.requestType,
+      department: validation.data.department,
+      priority: validation.data.priority,
       status: "new",
       createdBy: currentUser.userId,
+      attachments,
     });
 
     await createHistoryEntry({
@@ -132,19 +142,18 @@ export async function POST(req: Request) {
       performedBy: currentUser.userId,
       performedByRole: currentUser.role,
       details: {
-        message: "Request created",
+        message:
+          attachments.length > 0
+            ? `Request created with ${attachments.length} attachment(s)`
+            : "Request created",
         title: newRequest.title,
         status: newRequest.status,
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: newRequest,
-    });
+    return NextResponse.json({ success: true, data: newRequest });
   } catch (error) {
     console.error("POST request error:", error);
-
     return NextResponse.json(
       { success: false, message: "Failed to create request" },
       { status: 500 }

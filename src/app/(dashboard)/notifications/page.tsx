@@ -6,7 +6,7 @@ export default function NotificationsPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Notifications"
-                description="Vezi toate notificările tale."
+                description="See all notifications"
             />
 
             <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-900">

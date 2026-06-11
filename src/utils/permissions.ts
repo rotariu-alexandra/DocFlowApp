@@ -23,6 +23,10 @@ export function canApproveReject(
   return false;
 }
 
+export function canRequestClarification(role?: string) {
+  return role === "hr" || role === "manager" || role === "admin";
+}
+
 export function canManageAllRequests(role?: string) {
   return role === "hr" || role === "admin";
 }
@@ -43,7 +47,11 @@ export function canEditOwnRequest(
 ) {
   if (role === "admin") return true;
 
-  return createdBy === currentUserId && status === "new";
+
+  return (
+    createdBy === currentUserId &&
+    (status === "new" || status === "pending_clarification")
+  );
 }
 
 export function canDeleteOwnRequest(
@@ -53,6 +61,7 @@ export function canDeleteOwnRequest(
   status?: string
 ) {
   if (role === "admin") return true;
+
 
   return createdBy === currentUserId && status === "new";
 }

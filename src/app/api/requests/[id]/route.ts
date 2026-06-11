@@ -8,6 +8,7 @@ import {
   canApproveReject,
   canEditOwnRequest,
   canDeleteOwnRequest,
+  canRequestClarification,
 } from "@/utils/permissions";
 import { createHistoryEntry } from "@/lib/history";
 import { createNotification } from "@/lib/notifications";
@@ -44,7 +45,6 @@ export async function GET(
   try {
     await connectToDatabase();
 
-    // FIX 3: verificăm autentificarea pe GET
     const currentUser = await getCurrentUserRoleAndDepartment();
 
     if (!currentUser) {
@@ -119,8 +119,6 @@ export async function PUT(
       );
     }
 
-    // Acceptăm attachments din body (lista finală trimisă de client)
-    // Dacă nu e trimisă, păstrăm ce era înainte
     const attachments = Array.isArray(body.attachments)
       ? body.attachments.map((file: { uploadedAt?: string;[key: string]: unknown }) => ({
         ...file,
@@ -141,6 +139,18 @@ export async function PUT(
       performedByRole: currentUser.role,
       details: { message: "Request details updated" },
     });
+
+    // If the request was pending clarification and the employee edited it,
+    // notify them to use the resubmit button
+    if (existingRequest.status === "pending_clarification") {
+      await createNotification({
+        userId: existingRequest.createdBy,
+        title: "Request updated",
+        message: "You have updated your request. Use the 'Clarifications provided' button to resubmit it for processing.",
+        type: "info",
+        link: `/requests/${id}`,
+      });
+    }
 
     return NextResponse.json({ success: true, data: updatedRequest });
   } catch (error) {
@@ -177,24 +187,48 @@ export async function PATCH(
       );
     }
 
-    // FIX 2: niciun utilizator nu poate acționa pe propria cerere (cu excepția admin)
     const isSelfAction =
       existingRequest.createdBy === currentUser.userId &&
       currentUser.role !== "admin";
 
-    if (
-      isSelfAction &&
-      (body.status === "approved" ||
-        body.status === "rejected" ||
-        body.status === "in_progress")
-    ) {
-      return NextResponse.json(
-        { success: false, message: "Nu poți acționa pe propria cerere." },
-        { status: 403 }
-      );
+    // Employee can resubmit to in_progress after providing clarifications
+    const isResubmitAfterClarification =
+      body.status === "in_progress" &&
+      existingRequest.status === "pending_clarification" &&
+      existingRequest.createdBy === currentUser.userId;
+
+    if (!isResubmitAfterClarification) {
+      if (
+        isSelfAction &&
+        (body.status === "approved" ||
+          body.status === "rejected" ||
+          body.status === "in_progress")
+      ) {
+        return NextResponse.json(
+          { success: false, message: "You cannot act on your own request." },
+          { status: 403 }
+        );
+      }
     }
 
-    if (body.status === "in_progress" && !canStartProcessing(currentUser.role)) {
+    // Only HR/Manager/Admin can set pending_clarification
+    if (body.status === "pending_clarification") {
+      if (!canRequestClarification(currentUser.role)) {
+        return NextResponse.json(
+          { success: false, message: "Forbidden" },
+          { status: 403 }
+        );
+      }
+      // Request must be in_progress to request clarifications
+      if (existingRequest.status !== "in_progress") {
+        return NextResponse.json(
+          { success: false, message: "Clarifications can only be requested for requests that are in progress." },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (body.status === "in_progress" && !isResubmitAfterClarification && !canStartProcessing(currentUser.role)) {
       return NextResponse.json(
         { success: false, message: "Forbidden" },
         { status: 403 }
@@ -246,12 +280,34 @@ export async function PATCH(
       },
     });
 
-    // Creăm notificarea în DB și trimitem push SSE instantaneu
-    if (body.status === "in_progress") {
+    // Notifications per status transition
+    if (body.status === "in_progress" && !isResubmitAfterClarification) {
       await createNotification({
         userId: existingRequest.createdBy,
         title: "Request in progress",
         message: "Your request is now being processed.",
+        type: "info",
+        link: `/requests/${id}`,
+      });
+      notifyUser(existingRequest.createdBy);
+    }
+
+    if (body.status === "pending_clarification") {
+      await createNotification({
+        userId: existingRequest.createdBy,
+        title: "Clarifications required",
+        message: "Your request requires additional clarifications. Please edit it and resubmit.",
+        type: "warning",
+        link: `/requests/${id}`,
+      });
+      notifyUser(existingRequest.createdBy);
+    }
+
+    if (isResubmitAfterClarification) {
+      await createNotification({
+        userId: existingRequest.createdBy,
+        title: "Request resubmitted",
+        message: "Your request has been resubmitted for processing after providing clarifications.",
         type: "info",
         link: `/requests/${id}`,
       });

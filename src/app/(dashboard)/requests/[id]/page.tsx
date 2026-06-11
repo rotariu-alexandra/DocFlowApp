@@ -14,6 +14,7 @@ import {
   canApproveReject,
   canEditOwnRequest,
   canDeleteOwnRequest,
+  canRequestClarification,
 } from "@/utils/permissions";
 
 type Attachment = {
@@ -96,7 +97,7 @@ export default function RequestDetailsPage({
       if (data.success) {
         setRequest(data.data);
       } else {
-        alert(data.message || "Eroare la actualizarea statusului.");
+        alert(data.message || "Error updating request status.");
       }
     } catch (error) {
       console.error("Update request status error:", error);
@@ -138,6 +139,9 @@ export default function RequestDetailsPage({
     return <p className="p-4 text-gray-500 dark:text-gray-400">Request not found.</p>;
   }
 
+  const isOwner = request.createdBy === currentUserId;
+  const isPendingClarification = request.status === "pending_clarification";
+
   return (
     <div className="space-y-6">
       <div>
@@ -148,7 +152,23 @@ export default function RequestDetailsPage({
 
       <PageHeader title={request.title} description="View request details" />
 
-      {/* Detalii */}
+      {/* Clarification warning banner — visible to owner only */}
+      {isPendingClarification && isOwner && (
+        <div className="flex items-start gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-950/40">
+          <span className="text-xl">⚠️</span>
+          <div>
+            <p className="font-semibold text-orange-800 dark:text-orange-300">
+              Clarifications required
+            </p>
+            <p className="mt-1 text-sm text-orange-700 dark:text-orange-400">
+              HR or your manager has requested additional information. Edit your request (e.g. attach the required document),
+              then click <strong>"Clarifications provided"</strong> to resubmit it for processing.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Details */}
       <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-900">
         <div className="flex flex-wrap gap-3">
           <StatusBadge status={request.status} />
@@ -183,7 +203,7 @@ export default function RequestDetailsPage({
             <p className="mt-2 text-base leading-7 text-gray-700 dark:text-gray-300">{request.description}</p>
           </div>
 
-          {/* Atașamente */}
+          {/* Attachments */}
           <div className="md:col-span-2">
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Attached documents</p>
 
@@ -235,11 +255,12 @@ export default function RequestDetailsPage({
         </div>
       </div>
 
-      {/* Acțiuni */}
+      {/* Actions */}
       <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-900">
         <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Actions</h2>
 
         <div className="mt-4 flex flex-wrap gap-3">
+          {/* Edit — available to owner when status is new or pending_clarification */}
           {canEditOwnRequest(role, request.createdBy, currentUserId, request.status) && (
             <Link
               href={`/requests/${request._id}/edit`}
@@ -249,6 +270,18 @@ export default function RequestDetailsPage({
             </Link>
           )}
 
+          {/* Resubmit after clarification */}
+          {isPendingClarification && isOwner && (
+            <button
+              onClick={() => updateStatus("in_progress")}
+              disabled={updating}
+              className="inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-orange-700 disabled:opacity-50"
+            >
+              ✓ Clarifications provided
+            </button>
+          )}
+
+          {/* Delete — only when status is new */}
           {canDeleteOwnRequest(role, request.createdBy, currentUserId, request.status) && (
             <button
               onClick={handleDelete}
@@ -258,6 +291,7 @@ export default function RequestDetailsPage({
             </button>
           )}
 
+          {/* HR: Start Processing */}
           {request.status === "new" && canStartProcessing(role) && (
             <button
               onClick={() => updateStatus("in_progress")}
@@ -268,7 +302,19 @@ export default function RequestDetailsPage({
             </button>
           )}
 
-          {request.status === "in_progress" &&
+          {/* HR/Manager: Request clarifications */}
+          {request.status === "in_progress" && canRequestClarification(role) && (
+            <button
+              onClick={() => updateStatus("pending_clarification")}
+              disabled={updating}
+              className="rounded-lg border border-orange-400 bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700 transition hover:bg-orange-100 dark:bg-orange-950/40 dark:text-orange-300 dark:hover:bg-orange-900/60 disabled:opacity-50"
+            >
+              Request Clarifications
+            </button>
+          )}
+
+          {/* Approve / Reject */}
+          {(request.status === "in_progress" || request.status === "pending_clarification") &&
             canApproveReject(role, request.department, currentUserDepartment) && (
               <>
                 <button
@@ -293,7 +339,7 @@ export default function RequestDetailsPage({
 
       <RequestHistory requestId={request._id} />
 
-      {/* Comentarii */}
+      {/* Comments */}
       <CommentsSection requestId={request._id} />
     </div>
   );

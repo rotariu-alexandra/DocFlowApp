@@ -6,246 +6,118 @@ import PageHeader from "@/components/PageHeader";
 import { UploadDropzone } from "@/utils/uploadthing";
 
 type FormData = {
-  title: string;
-  description: string;
-  requestType:
-  | "leave_request"
-  | "shift_change"
-  | "certificate"
-  | "equipment_request"
-  | "other";
-  department: "HR" | "IT" | "Finance" | "Admin" | "Management";
+  title: string; description: string;
+  requestType: "leave_request" | "shift_change" | "certificate" | "equipment_request" | "other";
+  department: "HR" | "IT" | "Finance" | "Legal" | "Operations" | "Marketing" | "Sales" | "Admin" | "Management";
   priority: "low" | "medium" | "high";
 };
-
-type Attachment = {
-  fileName: string;
-  fileUrl: string;
-  fileKey: string;
-  fileType: string;
-  fileSize: number;
-  uploadedBy: string;
-  uploadedAt: string;
-};
-
-type FormErrors = {
-  title?: string;
-  description?: string;
-  requestType?: string;
-  department?: string;
-  priority?: string;
-};
+type Attachment = { fileName: string; fileUrl: string; fileKey: string; fileType: string; fileSize: number; uploadedBy: string; uploadedAt: string };
+type FormErrors = { title?: string; description?: string; requestType?: string; department?: string; priority?: string };
 
 const requestTypeDefaults = {
   leave_request: { title: "Leave Request", department: "HR" },
-  shift_change: { title: "Shift Change Request", department: "HR" },
+  shift_change: { title: "Shift Change", department: "HR" },
   certificate: { title: "Certificate Request", department: "HR" },
   equipment_request: { title: "Equipment Request", department: "IT" },
   other: { title: "General Request", department: "Admin" },
 } as const;
 
+const inputStyle: React.CSSProperties = {
+  width: "100%", fontSize: "13px", padding: "8px 12px",
+  borderRadius: "8px", border: "0.5px solid var(--card-border)",
+  background: "var(--card-bg)", color: "var(--foreground)",
+  outline: "none",
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block", fontSize: "12px", fontWeight: 500,
+  color: "var(--muted)", marginBottom: "6px",
+  textTransform: "uppercase", letterSpacing: ".04em",
+};
+
 export default function CreateRequestPage() {
   const [formData, setFormData] = useState<FormData>({
-    title: "General Request",
-    description: "",
-    requestType: "other",
-    department: "Admin",
-    priority: "medium",
+    title: "General Request", description: "", requestType: "other", department: "Admin", priority: "medium",
   });
-
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-
     if (name === "requestType") {
-      const selectedType = value as keyof typeof requestTypeDefaults;
-      const defaults = requestTypeDefaults[selectedType];
-
-      setFormData((prev) => {
-        const previousDefaultTitle = requestTypeDefaults[prev.requestType].title;
-        const shouldAutofillTitle =
-          prev.title.trim() === "" || prev.title === previousDefaultTitle;
-
-        return {
-          ...prev,
-          requestType: selectedType,
-          department: defaults.department as FormData["department"],
-          title: shouldAutofillTitle ? defaults.title : prev.title,
-        };
-      });
-
-      setErrors((prev) => ({
-        ...prev,
-        requestType: undefined,
-        department: undefined,
-        title: undefined,
+      const t = value as keyof typeof requestTypeDefaults;
+      const d = requestTypeDefaults[t];
+      setFormData(prev => ({
+        ...prev, requestType: t,
+        department: d.department as FormData["department"],
+        title: prev.title === requestTypeDefaults[prev.requestType].title || prev.title.trim() === "" ? d.title : prev.title,
       }));
-
+      setErrors(prev => ({ ...prev, requestType: undefined, department: undefined, title: undefined }));
       return;
     }
-
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: undefined }));
+    setFormData(prev => ({ ...prev, [name]: value }));
+    setErrors(prev => ({ ...prev, [name]: undefined }));
   };
 
-  const validateForm = () => {
-    const result = requestSchema.safeParse({
-      title: formData.title,
-      description: formData.description,
-      requestType: formData.requestType,
-      department: formData.department,
-      priority: formData.priority,
-    });
-
-    if (result.success) {
-      setErrors({});
-      return true;
-    }
-
-    const fieldErrors = result.error.flatten().fieldErrors;
-    setErrors({
-      title: fieldErrors.title?.[0],
-      description: fieldErrors.description?.[0],
-      requestType: fieldErrors.requestType?.[0],
-      department: fieldErrors.department?.[0],
-      priority: fieldErrors.priority?.[0],
-    });
-
-    return false;
-  };
-
-  const removeAttachment = (fileKey: string) => {
-    setAttachments((prev) => prev.filter((f) => f.fileKey !== fileKey));
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage("");
-
-    if (!validateForm()) return;
-
+    setMessage(null);
+    const result = requestSchema.safeParse(formData);
+    if (!result.success) {
+      const fe = result.error.flatten().fieldErrors;
+      setErrors({ title: fe.title?.[0], description: fe.description?.[0], requestType: fe.requestType?.[0], department: fe.department?.[0], priority: fe.priority?.[0] });
+      return;
+    }
+    setErrors({});
     try {
       setLoading(true);
-
-      console.log("ATTACHMENTS BEFORE SUBMIT:", attachments);
-
-      console.log("FULL PAYLOAD:", {
-        ...formData,
-        attachments,
-      });
-
-      const response = await fetch("/api/requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, attachments }),
-      });
-
-      const data = await response.json();
-
+      const res = await fetch("/api/requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...formData, attachments }) });
+      const data = await res.json();
       if (data.success) {
-        setMessage("Your request was submitted successfully.");
-        setFormData({
-          title: "General Request",
-          description: "",
-          requestType: "other",
-          department: "Admin",
-          priority: "medium",
-        });
+        setMessage({ text: "Request submitted successfully.", ok: true });
+        setFormData({ title: "General Request", description: "", requestType: "other", department: "Admin", priority: "medium" });
         setAttachments([]);
-        setErrors({});
+        // auto-dismiss after 4s
+        setTimeout(() => setMessage(null), 4000);
       } else {
-        setMessage(data.message || "Eroare la salvarea cererii.");
-
-        if (data.errors?.fieldErrors) {
-          setErrors({
-            title: data.errors.fieldErrors.title?.[0],
-            description: data.errors.fieldErrors.description?.[0],
-            requestType: data.errors.fieldErrors.requestType?.[0],
-            department: data.errors.fieldErrors.department?.[0],
-            priority: data.errors.fieldErrors.priority?.[0],
-          });
-        }
+        setMessage({ text: data.message || "Error submitting request.", ok: false });
       }
-    } catch (error) {
-      console.error(error);
-      setMessage("Eroare de conexiune cu serverul.");
-    } finally {
-      setLoading(false);
-    }
+    } catch {
+      setMessage({ text: "Connection error.", ok: false });
+    } finally { setLoading(false); }
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <PageHeader
-        title="Create Request"
-        description="Fill out the form to submit a new internal request."
-      />
+    <div style={{ maxWidth: "680px", margin: "0 auto" }}>
+      <PageHeader title="Create Request" description="Fill out the form to submit a new internal request." />
 
-      <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-900">
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <div className="card" style={{ marginTop: "20px" }}>
+        <form onSubmit={handleSubmit} noValidate style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
 
           {/* Title */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Title
-            </label>
-            <input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              placeholder="Ex: Leave Request"
-              className={`w-full rounded-xl border px-4 py-3 outline-none transition dark:bg-gray-950 dark:text-gray-100 ${errors.title
-                ? "border-red-500 focus:border-red-500"
-                : "border-gray-300 focus:border-blue-500 dark:border-gray-700"
-                }`}
-            />
-            {errors.title && (
-              <p className="mt-2 text-sm text-red-600">{errors.title}</p>
-            )}
+            <label style={labelStyle}>Title</label>
+            <input name="title" type="text" value={formData.title} onChange={handleChange}
+              style={{ ...inputStyle, borderColor: errors.title ? "var(--accent-red)" : "var(--card-border)" }} />
+            {errors.title && <p style={{ fontSize: "11px", color: "var(--accent-red)", marginTop: "4px" }}>{errors.title}</p>}
           </div>
 
           {/* Description */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Description
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="Descrie cererea..."
-              rows={5}
-              className={`w-full rounded-xl border px-4 py-3 outline-none transition dark:bg-gray-950 dark:text-gray-100 ${errors.description
-                ? "border-red-500 focus:border-red-500"
-                : "border-gray-300 focus:border-blue-500 dark:border-gray-700"
-                }`}
-            />
-            {errors.description && (
-              <p className="mt-2 text-sm text-red-600">{errors.description}</p>
-            )}
+            <label style={labelStyle}>Description</label>
+            <textarea name="description" rows={5} value={formData.description} onChange={handleChange}
+              placeholder="Describe your request…"
+              style={{ ...inputStyle, resize: "vertical", borderColor: errors.description ? "var(--accent-red)" : "var(--card-border)" }} />
+            {errors.description && <p style={{ fontSize: "11px", color: "var(--accent-red)", marginTop: "4px" }}>{errors.description}</p>}
           </div>
 
-          {/* Request Type + Department */}
-          <div className="grid gap-5 md:grid-cols-2">
+          {/* Type + Department */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Request Type
-              </label>
-              <select
-                name="requestType"
-                value={formData.requestType}
-                onChange={handleChange}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
-              >
+              <label style={labelStyle}>Request type</label>
+              <select name="requestType" value={formData.requestType} onChange={handleChange} style={inputStyle}>
                 <option value="leave_request">Leave Request</option>
                 <option value="shift_change">Shift Change</option>
                 <option value="certificate">Certificate</option>
@@ -253,116 +125,67 @@ export default function CreateRequestPage() {
                 <option value="other">Other</option>
               </select>
             </div>
-
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Department
-              </label>
-              <select
-                name="department"
-                value={formData.department}
-                onChange={handleChange}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
-              >
-                <option value="HR">HR</option>
-                <option value="IT">IT</option>
-                <option value="Finance">Finance</option>
-                <option value="Admin">Admin</option>
-                <option value="Management">Management</option>
+              <label style={labelStyle}>Department</label>
+              <select name="department" value={formData.department} onChange={handleChange} style={inputStyle}>
+                {["HR", "IT", "Finance", "Legal", "Operations", "Marketing", "Sales", "Admin", "Management"].map(d => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
           </div>
 
           {/* Priority */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Priority
-            </label>
-            <select
-              name="priority"
-              value={formData.priority}
-              onChange={handleChange}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100"
-            >
+            <label style={labelStyle}>Priority</label>
+            <select name="priority" value={formData.priority} onChange={handleChange} style={inputStyle}>
               <option value="low">Low</option>
               <option value="medium">Medium</option>
               <option value="high">High</option>
             </select>
           </div>
 
-          {/* Atașamente */}
-          <div className="rounded-2xl border border-dashed border-gray-300 p-4 dark:border-gray-700">
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Justified Documents
-            </label>
-            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
-              PDF, DOCX, imag — max. 8 MB per filie, max. 5 filies.
-            </p>
+          {/* Attachments */}
+          <div style={{ border: "0.5px dashed var(--card-border)", borderRadius: "8px", padding: "14px" }}>
+            <label style={labelStyle}>Attachments</label>
+            <p style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "12px" }}>PDF, DOCX, images — max 8 MB · max 5 files</p>
 
             <UploadDropzone
               endpoint="requestAttachment"
               onClientUploadComplete={(res) => {
-                const uploaded: Attachment[] = res.map((file) => ({
-                  fileName: file.name,
-                  fileUrl: file.ufsUrl,
-                  fileKey: file.key,
-                  fileType: file.type || "unknown",
-                  fileSize: file.size,
-                  uploadedBy:
-                    typeof file.serverData?.uploadedBy === "string"
-                      ? file.serverData.uploadedBy
-                      : "",
+                const uploaded: Attachment[] = res.map(f => ({
+                  fileName: f.name, fileUrl: f.ufsUrl, fileKey: f.key,
+                  fileType: f.type || "unknown", fileSize: f.size,
+                  uploadedBy: typeof f.serverData?.uploadedBy === "string" ? f.serverData.uploadedBy : "",
                   uploadedAt: new Date().toISOString(),
                 }));
-
-                setAttachments((prev) => [...prev, ...uploaded]);
-                setMessage(`${uploaded.length} file(s) uploaded cu successfully.`);
+                setAttachments(prev => [...prev, ...uploaded]);
               }}
-              onUploadError={(error: Error) => {
-                setMessage(`Eroare upload: ${error.message}`);
-              }}
+              onUploadError={(e: Error) => setMessage({ text: `Upload error: ${e.message}`, ok: false })}
               appearance={{
-                container:
-                  "border border-dashed border-gray-300 p-4 rounded-xl max-w-m",
-                uploadIcon: "h-8 w-8 text-blue-500",
-                label: "text-gray-600 dark:text-gray-400 text-sm",
-                allowedContent: "text-gray-400 text-xs",
-                button:
-                  "bg-blue-600 text-white px-4 py-2 rounded-lg text-sm",
+                container: "border border-dashed border-[var(--card-border)] p-4 rounded-lg",
+                uploadIcon: "h-6 w-6 text-[var(--muted)]",
+                label: "text-[var(--muted)] text-sm",
+                allowedContent: "text-[var(--muted)] text-xs",
+                button: "btn btn-primary bg-[var(--foreground)] text-[var(--background)] px-4 py-2 rounded-md text-sm font-medium hover:opacity-80 transition",
               }}
             />
 
-            {/* Lista fișiere încărcate */}
             {attachments.length > 0 && (
-              <div className="mt-4 space-y-2">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Attached Files ({attachments.length})
+              <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                <p style={{ fontSize: "12px", fontWeight: 500, color: "var(--foreground)", margin: 0 }}>
+                  Attached ({attachments.length})
                 </p>
-
-                {attachments.map((file) => (
-                  <div
-                    key={file.fileKey}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm dark:border-gray-700"
-                  >
-                    <div className="min-w-0">
-                      <a
-                        href={file.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="truncate font-medium text-blue-600 hover:underline"
-                      >
-                        📎 {file.fileName}
-                      </a>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {(file.fileSize / 1024).toFixed(1)} KB · {file.fileType}
-                      </p>
+                {attachments.map(f => (
+                  <div key={f.fileKey} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "6px", background: "var(--muted-bg)", border: "0.5px solid var(--card-border)" }}>
+                    <div>
+                      <a href={f.fileUrl} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: "12px", fontWeight: 500, color: "var(--foreground)", textDecoration: "none" }}
+                        onMouseEnter={e => ((e.target as HTMLElement).style.textDecoration = "underline")}
+                        onMouseLeave={e => ((e.target as HTMLElement).style.textDecoration = "none")}
+                      >📎 {f.fileName}</a>
+                      <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>{(f.fileSize / 1024).toFixed(1)} KB · {f.fileType}</p>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() => removeAttachment(file.fileKey)}
-                      className="shrink-0 rounded-lg bg-red-50 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-100 dark:bg-red-950 dark:text-red-300"
-                    >
+                    <button type="button" onClick={() => setAttachments(prev => prev.filter(x => x.fileKey !== f.fileKey))}
+                      className="btn btn-red" style={{ fontSize: "11px", padding: "3px 8px" }}>
                       Remove
                     </button>
                   </div>
@@ -371,21 +194,26 @@ export default function CreateRequestPage() {
             )}
           </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? "Submitting" : "Submit Requests"}
-          </button>
-        </form>
+          {/* Success / error message */}
+          {message && (
+            <div style={{
+              padding: "10px 14px", borderRadius: "8px", fontSize: "13px", fontWeight: 500,
+              background: message.ok ? "var(--accent-green-bg)" : "var(--accent-red-bg)",
+              color: message.ok ? "var(--accent-green)" : "var(--accent-red)",
+              border: `0.5px solid ${message.ok ? "#C6E4A8" : "#F5C5C5"}`,
+            }}>
+              {message.ok ? "✓ " : "✕ "}{message.text}
+            </div>
+          )}
 
-        {message && (
-          <p className="mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">
-            {message}
-          </p>
-        )}
+          {/* Submit */}
+          <div>
+            <button type="submit" disabled={loading} className="btn btn-primary"
+              style={{ padding: "8px 20px", fontSize: "13px" }}>
+              {loading ? "Submitting…" : "Submit request"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

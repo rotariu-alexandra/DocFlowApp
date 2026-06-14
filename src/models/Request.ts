@@ -34,7 +34,17 @@ const RequestSchema = new Schema(
 
     department: {
       type: String,
-      enum: ["HR", "IT", "Finance", "Admin", "Management"],
+      enum: [
+        "HR",
+        "IT",
+        "Finance",
+        "Legal",
+        "Operations",
+        "Marketing",
+        "Sales",
+        "Admin",
+        "Management",
+      ],
       required: true,
     },
 

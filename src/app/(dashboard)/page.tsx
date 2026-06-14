@@ -9,20 +9,10 @@ import DashboardCharts from "@/components/DashboardCharts";
 import ExportPdfButton from "@/components/ExportPdfButton";
 import { useUser } from "@clerk/nextjs";
 
-type RequestItem = {
-  _id: string;
-  title: string;
-  department: string;
-  status: string;
-  priority: string;
-};
-
+type RequestItem = { _id: string; title: string; department: string; status: string; priority: string };
 type DashboardData = {
-  totalRequests: number;
-  newRequests: number;
-  inProgressRequests: number;
-  approvedRequests: number;
-  rejectedRequests: number;
+  totalRequests: number; newRequests: number; inProgressRequests: number;
+  approvedRequests: number; rejectedRequests: number;
   recentRequests: RequestItem[];
   departmentStats: { department: string; count: number }[];
   statusStats: { status: string; count: number }[];
@@ -31,113 +21,120 @@ type DashboardData = {
 
 export default function HomePage() {
   const { user } = useUser();
-  const role =
-    typeof user?.publicMetadata?.role === "string"
-      ? user.publicMetadata.role.toLowerCase()
-      : undefined;
-
-  // Exportul e vizibil doar pentru hr, manager, admin
+  const role = typeof user?.publicMetadata?.role === "string" ? user.publicMetadata.role.toLowerCase() : undefined;
   const canExport = role && ["hr", "manager", "admin"].includes(role);
 
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/dashboard")
-      .then((r) => r.json())
-      .then((data) => { if (data.success) setDashboardData(data.data); })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    fetch("/api/dashboard").then(r => r.json()).then(d => { if (d.success) setData(d.data); }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
-    return <p className="p-4 text-gray-500 dark:text-gray-400">Loading dashboard...</p>;
-  }
+  if (loading) return <div style={{ color: "var(--muted)", fontSize: "13px" }}>Loading…</div>;
+  if (!data) return <div style={{ color: "var(--muted)", fontSize: "13px" }}>No data.</div>;
 
-  if (!dashboardData) {
-    return <p className="p-4 text-gray-500 dark:text-gray-400">No dashboard data available.</p>;
-  }
-
-  const stats = [
-    { title: "Total Requests", value: dashboardData.totalRequests },
-    { title: "New Requests", value: dashboardData.newRequests },
-    { title: "In Progress", value: dashboardData.inProgressRequests },
-    { title: "Approved", value: dashboardData.approvedRequests },
-    { title: "Rejected", value: dashboardData.rejectedRequests },
+  const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const statCards = [
+    { label: "Total", value: data.totalRequests, dot: "#639922" },
+    { label: "New", value: data.newRequests, dot: "#378ADD" },
+    { label: "In progress", value: data.inProgressRequests, dot: "#BA7517" },
+    { label: "Approved", value: data.approvedRequests, dot: "#3B6D11" },
+    { label: "Rejected", value: data.rejectedRequests, dot: "#A32D2D" },
   ];
 
+  const maxDept = Math.max(...data.departmentStats.map(d => d.count), 1);
+
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Dashboard"
-        description="Manage requests and track internal document workflows."
-      />
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
-      {/* Butoane acțiuni */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Link
-          href="/create-request"
-          className="inline-flex rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-        >
-          Create Request
-        </Link>
-
-        <Link
-          href="/my-requests"
-          className="inline-flex rounded-lg bg-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-800 transition hover:bg-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
-        >
-          My Requests
-        </Link>
-
-        {canExport && <ExportPdfButton />}
-      </div>
-
-      {/* Carduri statistici */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {stats.map((stat) => (
-          <div key={stat.title} className="rounded-2xl bg-white p-5 shadow-sm dark:bg-gray-900">
-            <p className="text-sm text-gray-500 dark:text-gray-400">{stat.title}</p>
-            <h2 className="mt-3 text-3xl font-bold text-gray-800 dark:text-gray-100">{stat.value}</h2>
-          </div>
-        ))}
-      </section>
-
-      <DashboardCharts
-        departmentStats={dashboardData.departmentStats}
-        statusStats={dashboardData.statusStats}
-        dailyStats={dashboardData.dailyStats}
-      />
-
-      {/* Cereri recente */}
-      <section className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-900">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Recent Requests</h2>
-          <Link href="/requests" className="text-sm font-medium text-blue-600 hover:underline">
-            View all
+      {/* Topbar */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <PageHeader title="Dashboard" description={today} />
+        <div style={{ display: "flex", gap: "8px", flexShrink: 0, alignItems: "center" }}>
+          {canExport && <ExportPdfButton />}
+          <Link href="/create-request" className="btn btn-blue" style={{ fontSize: "13px", padding: "7px 16px" }}>
+            + New request
           </Link>
         </div>
+      </div>
 
-        <div className="space-y-4">
-          {dashboardData.recentRequests.length === 0 ? (
-            <p className="text-gray-500 dark:text-gray-400">No recent requests found.</p>
+      {/* Stat cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px" }}>
+        {statCards.map(s => (
+          <div key={s.label} className="card" style={{ padding: "12px 14px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: s.dot, flexShrink: 0, display: "inline-block" }} />
+              <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: ".04em" }}>{s.label}</span>
+            </div>
+            <div style={{ fontSize: "28px", fontWeight: 500, color: "var(--foreground)", marginTop: "6px", lineHeight: 1 }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Chart */}
+      <DashboardCharts departmentStats={data.departmentStats} statusStats={data.statusStats} dailyStats={data.dailyStats} />
+
+      {/* Bottom row: Recent Requests (left) + By Department (right) */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: "12px" }}>
+
+        {/* Recent requests */}
+        <div className="card" style={{ padding: "14px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--foreground)", margin: 0 }}>Recent requests</p>
+            <Link href="/requests" className="btn btn-link"
+              onMouseEnter={e => ((e.target as HTMLElement).style.textDecoration = "underline")}
+              onMouseLeave={e => ((e.target as HTMLElement).style.textDecoration = "none")}
+            >View all →</Link>
+          </div>
+          {data.recentRequests.length === 0 ? (
+            <p style={{ fontSize: "13px", color: "var(--muted)" }}>No recent requests.</p>
           ) : (
-            dashboardData.recentRequests.map((request) => (
-              <div key={request._id} className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <h3 className="font-semibold text-gray-800 dark:text-gray-100">{request.title}</h3>
-                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Department: {request.department}</p>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {data.recentRequests.map((req, i) => (
+                <div key={req._id} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "8px 0", gap: "12px",
+                  borderBottom: i < data.recentRequests.length - 1 ? "0.5px solid var(--card-border)" : "none",
+                }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <Link href={`/requests/${req._id}`} style={{ textDecoration: "none" }}>
+                      <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--foreground)", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{req.title}</p>
+                    </Link>
+                    <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "1px" }}>{req.department}</p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <StatusBadge status={request.status} />
-                    <PriorityBadge priority={request.priority} />
+                  <div style={{ display: "flex", gap: "5px", flexShrink: 0 }}>
+                    <StatusBadge status={req.status} />
+                    <PriorityBadge priority={req.priority} />
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
-      </section>
+
+        {/* By department */}
+        <div className="card" style={{ padding: "14px 16px" }}>
+          <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--foreground)", margin: "0 0 12px" }}>By department</p>
+          {data.departmentStats.length === 0 ? (
+            <p style={{ fontSize: "13px", color: "var(--muted)" }}>No data.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {data.departmentStats.map(d => (
+                <div key={d.department}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
+                    <span style={{ fontSize: "12px", color: "var(--foreground)" }}>{d.department}</span>
+                    <span style={{ fontSize: "11px", color: "var(--muted)" }}>{d.count}</span>
+                  </div>
+                  <div style={{ height: "4px", borderRadius: "2px", background: "var(--muted-bg)" }}>
+                    <div style={{ height: "100%", borderRadius: "2px", background: "var(--accent-blue)", width: `${Math.round((d.count / maxDept) * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
+import "./globals.css";
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import "./globals.css";
 import ThemeProvider from "@/components/ThemeProvider";
 
 export const metadata: Metadata = {
@@ -8,15 +8,17 @@ export const metadata: Metadata = {
   description: "Document management platform built with Next.js and MongoDB",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
-        <body className="bg-gray-100 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+        <head>
+          <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"
+          />
+        </head>
+        <body style={{ background: "var(--background)", color: "var(--foreground)", margin: 0 }}>
           <ThemeProvider>{children}</ThemeProvider>
         </body>
       </html>

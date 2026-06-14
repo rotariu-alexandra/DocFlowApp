@@ -3,16 +3,15 @@ type PageHeaderProps = {
   description: string;
 };
 
-export default function PageHeader({
-  title,
-  description,
-}: PageHeaderProps) {
+export default function PageHeader({ title, description }: PageHeaderProps) {
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-900">
-      <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
+    <div>
+      <h1 style={{ fontSize: "22px", fontWeight: 500, color: "var(--foreground)", margin: 0, lineHeight: 1.2 }}>
         {title}
       </h1>
-      <p className="mt-2 text-gray-500 dark:text-gray-400">{description}</p>
+      <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>
+        {description}
+      </p>
     </div>
   );
 }

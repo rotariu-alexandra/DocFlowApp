@@ -3,27 +3,14 @@
 import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 
-type Comment = {
-    _id: string;
-    authorId: string;
-    authorName: string;
-    authorRole: string;
-    content: string;
-    createdAt: string;
-};
+type Comment = { _id: string; authorId: string; authorName: string; authorRole: string; content: string; createdAt: string };
 
-const ROLE_LABEL: Record<string, string> = {
-    employee: "Angajat",
-    hr: "HR",
-    manager: "Manager",
-    admin: "Admin",
-};
-
-const ROLE_COLOR: Record<string, string> = {
-    employee: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-    hr: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-    manager: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
-    admin: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+const ROLE_LABEL: Record<string, string> = { employee: "Employee", hr: "HR", manager: "Manager", admin: "Admin" };
+const ROLE_STYLE: Record<string, React.CSSProperties> = {
+    employee: { background: "#F1EFE8", color: "#5F5E5A" },
+    hr: { background: "#E6F1FB", color: "#185FA5" },
+    manager: { background: "#F3EDFC", color: "#6B21A8" },
+    admin: { background: "#FCEBEB", color: "#A32D2D" },
 };
 
 export default function CommentsSection({ requestId }: { requestId: string }) {
@@ -34,115 +21,81 @@ export default function CommentsSection({ requestId }: { requestId: string }) {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
 
-    useEffect(() => {
-        fetchComments();
-    }, [requestId]);
-
     const fetchComments = async () => {
         try {
             const res = await fetch(`/api/requests/${requestId}/comments`);
             const data = await res.json();
             if (data.success) setComments(data.data);
-        } catch {
-            // silent
-        } finally {
-            setLoading(false);
-        }
+        } catch { /* silent */ } finally { setLoading(false); }
     };
+
+    useEffect(() => { fetchComments(); }, [requestId]);
 
     const handleSubmit = async () => {
         setError("");
         const trimmed = content.trim();
-        if (!trimmed) { setError("Comentariul nu poate fi gol."); return; }
-
+        if (!trimmed) { setError("Comment cannot be empty."); return; }
         try {
             setSubmitting(true);
             const res = await fetch(`/api/requests/${requestId}/comments`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+                method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ content: trimmed }),
             });
             const data = await res.json();
-            if (data.success) {
-                setContent("");
-                setComments((prev) => [...prev, data.data]);
-            } else {
-                setError(data.message || "Eroare.");
-            }
-        } catch {
-            setError("Eroare de conexiune.");
-        } finally {
-            setSubmitting(false);
-        }
+            if (data.success) { setContent(""); setComments(prev => [...prev, data.data]); }
+            else setError(data.message || "Error.");
+        } catch { setError("Connection error."); }
+        finally { setSubmitting(false); }
     };
 
     return (
-        <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-900">
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-                Comments
-            </h2>
+        <div className="card">
+            <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--foreground)", marginBottom: "14px" }}>Comments</p>
 
-            <div className="mt-5 space-y-4">
-                {loading ? (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Se încarcă...</p>
-                ) : comments.length === 0 ? (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        No comments yet.
-                    </p>
-                ) : (
-                    comments.map((comment) => (
-                        <div
-                            key={comment._id}
-                            className="rounded-xl border border-gray-200 p-4 dark:border-gray-700"
-                        >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                                        {comment.authorName}
+            {loading ? (
+                <p style={{ fontSize: "13px", color: "var(--muted)" }}>Loading…</p>
+            ) : comments.length === 0 ? (
+                <p style={{ fontSize: "13px", color: "var(--muted)" }}>No comments yet.</p>
+            ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
+                    {comments.map(c => (
+                        <div key={c._id} style={{ padding: "12px 14px", borderRadius: "8px", background: "var(--muted-bg)", border: "0.5px solid var(--card-border)" }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--foreground)" }}>{c.authorName}</span>
+                                    <span style={{ fontSize: "10px", fontWeight: 500, padding: "1px 7px", borderRadius: "20px", ...(ROLE_STYLE[c.authorRole] ?? ROLE_STYLE.employee) }}>
+                                        {ROLE_LABEL[c.authorRole] ?? c.authorRole}
                                     </span>
-                                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLOR[comment.authorRole] ?? ROLE_COLOR.employee}`}>
-                                        {ROLE_LABEL[comment.authorRole] ?? comment.authorRole}
-                                    </span>
-                                    {comment.authorId === user?.id && (
-                                        <span className="text-xs text-gray-400">(tu)</span>
-                                    )}
+                                    {c.authorId === user?.id && <span style={{ fontSize: "11px", color: "var(--muted)" }}>(you)</span>}
                                 </div>
-                                <span className="text-xs text-gray-400">
-                                    {new Date(comment.createdAt).toLocaleString("ro-RO")}
-                                </span>
+                                <span style={{ fontSize: "11px", color: "var(--muted)" }}>{new Date(c.createdAt).toLocaleString("en-GB")}</span>
                             </div>
-                            <p className="mt-2 text-sm leading-6 text-gray-700 dark:text-gray-300">
-                                {comment.content}
-                            </p>
+                            <p style={{ fontSize: "13px", color: "var(--foreground)", lineHeight: 1.6, margin: 0 }}>{c.content}</p>
                         </div>
-                    ))
-                )}
-            </div>
+                    ))}
+                </div>
+            )}
 
-            {/* Formular */}
-            <div className="mt-6 space-y-3">
+            {/* Input */}
+            <div style={{ borderTop: comments.length ? "0.5px solid var(--card-border)" : "none", paddingTop: comments.length ? "14px" : 0 }}>
                 <textarea
                     value={content}
-                    onChange={(e) => { setContent(e.target.value); setError(""); }}
-                    placeholder="Add a comment..."
+                    onChange={e => { setContent(e.target.value); setError(""); }}
+                    placeholder="Add a comment…"
                     rows={3}
-                    className={`w-full rounded-xl border px-4 py-3 text-sm outline-none transition dark:bg-gray-950 dark:text-gray-100 ${error
-                        ? "border-red-400 focus:border-red-500"
-                        : "border-gray-300 focus:border-blue-500 dark:border-gray-700"
-                        }`}
+                    style={{
+                        width: "100%", fontSize: "13px", padding: "8px 12px",
+                        borderRadius: "8px", border: `0.5px solid ${error ? "var(--accent-red)" : "var(--card-border)"}`,
+                        background: "var(--card-bg)", color: "var(--foreground)",
+                        outline: "none", resize: "vertical",
+                    }}
                 />
-                <div className="flex items-center justify-between gap-3">
-                    {error ? (
-                        <p className="text-sm text-red-600">{error}</p>
-                    ) : (
-                        <span className="text-xs text-gray-400">{content.length}/2000</span>
-                    )}
-                    <button
-                        onClick={handleSubmit}
-                        disabled={submitting}
-                        className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-                    >
-                        {submitting ? "Submitting" : "Submit Comment"}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "8px" }}>
+                    <span style={{ fontSize: "11px", color: error ? "var(--accent-red)" : "var(--muted)" }}>
+                        {error || `${content.length}/2000`}
+                    </span>
+                    <button onClick={handleSubmit} disabled={submitting} className="btn btn-primary" style={{ padding: "6px 16px" }}>
+                        {submitting ? "Submitting…" : "Submit comment"}
                     </button>
                 </div>
             </div>

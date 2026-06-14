@@ -7,26 +7,29 @@ export default function ThemeToggle() {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
-  if (!mounted) {
-    return (
-      <button className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-        Theme
-      </button>
-    );
-  }
+  if (!mounted) return (
+    <div style={{ height: "30px", width: "80px", borderRadius: "6px", background: "var(--muted-bg)" }} />
+  );
 
   const currentTheme = theme === "system" ? resolvedTheme : theme;
 
   return (
     <button
       onClick={() => setTheme(currentTheme === "dark" ? "light" : "dark")}
-      className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+      style={{
+        display: "flex", alignItems: "center", gap: "7px",
+        width: "100%", padding: "6px 10px", borderRadius: "6px",
+        fontSize: "12px", color: "var(--muted)",
+        background: "transparent", border: "none", cursor: "pointer",
+        transition: "background .12s",
+      }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--muted-bg)"; (e.currentTarget as HTMLElement).style.color = "var(--foreground)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "var(--muted)"; }}
     >
-      {currentTheme === "dark" ? "Light Mode" : "Dark Mode"}
+      <i className={`ti ${currentTheme === "dark" ? "ti-sun" : "ti-moon"}`} style={{ fontSize: "15px" }} aria-hidden="true" />
+      {currentTheme === "dark" ? "Light mode" : "Dark mode"}
     </button>
   );
 }

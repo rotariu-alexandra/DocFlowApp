@@ -6,27 +6,22 @@ import { useEffect, useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { UserButton, useUser } from "@clerk/nextjs";
 
-// Linkuri vizibile pentru fiecare rol
 const getLinksByRole = (role: string | undefined) => {
   const base = [
-    { href: "/", label: "Dashboard" },
-    { href: "/create-request", label: "Create Request" },
-    { href: "/my-requests", label: "My Requests" },
-    { href: "/notifications", label: "Notifications" },
+    { href: "/", label: "Dashboard", icon: "ti-layout-dashboard" },
+    { href: "/create-request", label: "Create request", icon: "ti-file-plus" },
+    { href: "/my-requests", label: "My requests", icon: "ti-files" },
+    { href: "/notifications", label: "Notifications", icon: "ti-bell", badge: true },
   ];
 
-  // Requests (lista generala) e vizibila doar pentru hr, manager, admin
   if (role && ["hr", "manager", "admin"].includes(role)) {
-    base.splice(2, 0, { href: "/requests", label: "Requests" });
+    base.splice(3, 0, { href: "/requests", label: "All requests", icon: "ti-list-details" });
   }
 
   return base;
 };
 
-type NotificationItem = {
-  _id: string;
-  isRead: boolean;
-};
+type NotificationItem = { _id: string; isRead: boolean };
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -37,19 +32,14 @@ export default function Sidebar() {
       : undefined;
 
   const links = getLinksByRole(role);
-
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchUnread = async () => {
     try {
       const res = await fetch("/api/notifications", { cache: "no-store" });
       const data = await res.json();
-
       if (data.success) {
-        const unread = (data.data as NotificationItem[]).filter(
-          (n) => !n.isRead
-        );
-        setUnreadCount(unread.length);
+        setUnreadCount((data.data as NotificationItem[]).filter((n) => !n.isRead).length);
       }
     } catch (error) {
       console.error("Fetch unread notifications error:", error);
@@ -58,98 +48,158 @@ export default function Sidebar() {
 
   useEffect(() => {
     if (!isLoaded || !user) return;
-
-    // Fetch initial
     fetchUnread();
 
-    // SSE — înlocuiește polling-ul de 10s
     const eventSource = new EventSource("/api/notifications/stream");
-
     eventSource.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
-        if (payload.type === "notification") {
-          // A venit o notificare nouă — re-fetch pentru count actualizat
-          fetchUnread();
-        }
-      } catch {
-        // ping sau mesaj fără JSON valid — ignorăm
-      }
+        if (payload.type === "notification") fetchUnread();
+      } catch { /* ping */ }
     };
+    eventSource.onerror = () => eventSource.close();
 
-    eventSource.onerror = () => {
-      // Dacă SSE pică, închidem — browser-ul va reconecta automat
-      eventSource.close();
-    };
-
-    // Actualizare badge când userul marchează ca citit din NotificationList
-    const handleNotificationsUpdated = () => {
-      fetchUnread();
-    };
-    window.addEventListener("notifications-updated", handleNotificationsUpdated);
-
+    const handler = () => fetchUnread();
+    window.addEventListener("notifications-updated", handler);
     return () => {
       eventSource.close();
-      window.removeEventListener(
-        "notifications-updated",
-        handleNotificationsUpdated
-      );
+      window.removeEventListener("notifications-updated", handler);
     };
   }, [isLoaded, user?.id]);
 
+  const initials = user?.fullName
+    ? user.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+    : "U";
+
   return (
-    <aside className="w-full border-b bg-white dark:border-gray-800 dark:bg-gray-900 md:min-h-screen md:w-64 md:border-b-0 md:border-r">
-      <div className="border-b px-6 py-5 dark:border-gray-800">
-        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-          DocuFlow
-        </h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Document management app
-        </p>
+    <aside
+      className="flex flex-col"
+      style={{
+        width: "220px",
+        minWidth: "220px",
+        minHeight: "100vh",
+        background: "var(--sidebar-bg)",
+        borderRight: "0.5px solid var(--sidebar-border)",
+      }}
+    >
+      {/* Logo */}
+      <div style={{ padding: "20px 16px 16px", borderBottom: "0.5px solid var(--sidebar-border)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div
+            style={{
+              width: "30px", height: "30px", borderRadius: "8px",
+              background: "var(--foreground)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <i className="ti ti-file-description" style={{ fontSize: "15px", color: "var(--background)" }} aria-hidden="true" />
+          </div>
+          <div>
+            <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--foreground)", lineHeight: 1.2 }}>DocuFlow</div>
+            <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "1px" }}>Document management</div>
+          </div>
+        </div>
       </div>
 
-      <nav className="flex gap-2 overflow-x-auto px-4 py-4 md:block md:space-y-2">
-        {links.map((link) => {
-          const isActive = pathname === link.href;
+      {/* Nav */}
+      <nav style={{ flex: 1, padding: "10px 8px", display: "flex", flexDirection: "column", gap: "2px" }}>
+        <div style={{ fontSize: "10px", fontWeight: 500, color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase", padding: "10px 8px 4px" }}>
+          Main
+        </div>
 
+        {links.slice(0, 3).map((link) => {
+          const isActive = pathname === link.href;
           return (
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition ${isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
-                }`}
+              style={{
+                display: "flex", alignItems: "center", gap: "9px",
+                padding: "7px 10px", borderRadius: "8px",
+                fontSize: "13px",
+                color: isActive ? "var(--foreground)" : "var(--muted)",
+                fontWeight: isActive ? 500 : 400,
+                background: isActive ? "var(--muted-bg)" : "transparent",
+                textDecoration: "none", transition: "background .12s, color .12s",
+              }}
+              onMouseEnter={(e) => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "var(--muted-bg)"; (e.currentTarget as HTMLElement).style.color = "var(--foreground)"; } }}
+              onMouseLeave={(e) => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "var(--muted)"; } }}
             >
-              <span>{link.label}</span>
-
-              {link.href === "/notifications" && unreadCount > 0 && (
-                <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">
-                  {unreadCount}
-                </span>
-              )}
+              <i className={`ti ${link.icon}`} style={{ fontSize: "16px", width: "16px" }} aria-hidden="true" />
+              {link.label}
             </Link>
           );
         })}
+
+        {role && ["hr", "manager", "admin"].includes(role) && (
+          <>
+            <div style={{ fontSize: "10px", fontWeight: 500, color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase", padding: "12px 8px 4px" }}>
+              Management
+            </div>
+            <Link
+              href="/requests"
+              style={{
+                display: "flex", alignItems: "center", gap: "9px",
+                padding: "7px 10px", borderRadius: "8px",
+                fontSize: "13px",
+                color: pathname === "/requests" ? "var(--foreground)" : "var(--muted)",
+                fontWeight: pathname === "/requests" ? 500 : 400,
+                background: pathname === "/requests" ? "var(--muted-bg)" : "transparent",
+                textDecoration: "none", transition: "background .12s, color .12s",
+              }}
+              onMouseEnter={(e) => { if (pathname !== "/requests") { (e.currentTarget as HTMLElement).style.background = "var(--muted-bg)"; (e.currentTarget as HTMLElement).style.color = "var(--foreground)"; } }}
+              onMouseLeave={(e) => { if (pathname !== "/requests") { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "var(--muted)"; } }}
+            >
+              <i className="ti ti-list-details" style={{ fontSize: "16px", width: "16px" }} aria-hidden="true" />
+              All requests
+            </Link>
+          </>
+        )}
+
+        <div style={{ fontSize: "10px", fontWeight: 500, color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase", padding: "12px 8px 4px" }}>
+          Account
+        </div>
+
+        <Link
+          href="/notifications"
+          style={{
+            display: "flex", alignItems: "center", gap: "9px",
+            padding: "7px 10px", borderRadius: "8px",
+            fontSize: "13px",
+            color: pathname === "/notifications" ? "var(--foreground)" : "var(--muted)",
+            fontWeight: pathname === "/notifications" ? 500 : 400,
+            background: pathname === "/notifications" ? "var(--muted-bg)" : "transparent",
+            textDecoration: "none", transition: "background .12s, color .12s",
+          }}
+          onMouseEnter={(e) => { if (pathname !== "/notifications") { (e.currentTarget as HTMLElement).style.background = "var(--muted-bg)"; (e.currentTarget as HTMLElement).style.color = "var(--foreground)"; } }}
+          onMouseLeave={(e) => { if (pathname !== "/notifications") { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "var(--muted)"; } }}
+        >
+          <i className="ti ti-bell" style={{ fontSize: "16px", width: "16px" }} aria-hidden="true" />
+          Notifications
+          {unreadCount > 0 && (
+            <span style={{ marginLeft: "auto", background: "#e24b4a", color: "#fff", fontSize: "10px", fontWeight: 500, padding: "1px 6px", borderRadius: "10px" }}>
+              {unreadCount}
+            </span>
+          )}
+        </Link>
       </nav>
 
-      <div className="px-4 pb-4 md:pt-4">
-        <ThemeToggle />
-      </div>
-
-      <div className="mt-6 border-t border-gray-200 px-4 pt-4 dark:border-gray-800">
-        <div className="rounded-xl border border-gray-200 p-3 dark:border-gray-800">
-          <div className="flex items-center gap-3">
+      {/* Footer */}
+      <div style={{ padding: "10px 8px 12px", borderTop: "0.5px solid var(--sidebar-border)" }}>
+        <div style={{ padding: "4px 8px 8px" }}>
+          <ThemeToggle />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 10px", borderRadius: "8px" }}>
+          <div style={{ flexShrink: 0 }}>
             <UserButton />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">
-                {user?.fullName ||
-                  user?.primaryEmailAddress?.emailAddress ||
-                  "User"}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Role: {role || "employee"}
-              </p>
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: "12px", fontWeight: 500, color: "var(--foreground)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {user?.fullName || user?.primaryEmailAddress?.emailAddress || "User"}
+            </div>
+            <div style={{ fontSize: "11px", color: "var(--muted)" }}>
+              {role || "employee"}
             </div>
           </div>
         </div>

@@ -84,11 +84,22 @@ export default function RequestDetailsPage({ params }: { params: Promise<{ id: s
 
       {/* Clarification banner */}
       {isPending && isOwner && (
-        <div style={{ background: "#FDF0E6", border: "0.5px solid #F0A070", borderRadius: "10px", padding: "14px 16px", display: "flex", gap: "10px" }}>
-          <span>⚠</span>
+        <div style={{
+          background: "var(--accent-orange-bg)",
+          border: "0.5px solid var(--accent-orange)",
+          borderRadius: "10px",
+          padding: "14px 16px",
+          display: "flex",
+          gap: "10px",
+        }}>
+          <span style={{ color: "var(--accent-orange)", flexShrink: 0 }}>⚠</span>
           <div>
-            <p style={{ fontSize: "13px", fontWeight: 500, color: "#7C3500", margin: 0 }}>Clarifications required</p>
-            <p style={{ fontSize: "12px", color: "#C2610C", marginTop: "3px" }}>Edit your request then click <strong>"Clarifications provided"</strong> to resubmit.</p>
+            <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--accent-orange)", margin: 0 }}>
+              Clarifications required
+            </p>
+            <p style={{ fontSize: "12px", color: "var(--accent-orange)", marginTop: "3px", opacity: 0.85 }}>
+              Edit your request then click <strong>"Clarifications provided"</strong> to resubmit.
+            </p>
           </div>
         </div>
       )}

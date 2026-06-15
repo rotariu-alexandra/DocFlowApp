@@ -4,14 +4,15 @@ import PriorityBadge from "@/components/PriorityBadge";
 import { canStartProcessing, canApproveReject, canRequestClarification } from "@/utils/permissions";
 
 type RequestCardProps = {
-  request: { _id: string; title: string; description: string; department: string; requestType: string; status: string; priority: string };
+  request: { _id: string; title: string; description: string; department: string; requestType: string; status: string; priority: string; createdBy: string };
   updatingId: string | null;
   onUpdateStatus: (id: string, status: string) => void;
   role?: string;
   currentUserDepartment?: string;
+  currentUserId?: string;
 };
 
-export default function RequestCard({ request, updatingId, onUpdateStatus, role, currentUserDepartment }: RequestCardProps) {
+export default function RequestCard({ request, updatingId, onUpdateStatus, role, currentUserDepartment, currentUserId }: RequestCardProps) {
   const busy = updatingId === request._id;
 
   return (
@@ -37,20 +38,20 @@ export default function RequestCard({ request, updatingId, onUpdateStatus, role,
       <div style={{ display: "flex", gap: "8px", marginTop: "14px", paddingTop: "12px", borderTop: "0.5px solid var(--card-border)", flexWrap: "wrap" }}>
         <Link href={`/requests/${request._id}`} className="btn btn-ghost">View</Link>
 
-        {request.status === "new" && canStartProcessing(role) && (
+        {request.status === "new" && canStartProcessing(role, request.createdBy, currentUserId) && (
           <button onClick={() => onUpdateStatus(request._id, "in_progress")} disabled={busy} className="btn btn-blue">
             Start processing
           </button>
         )}
 
-        {request.status === "in_progress" && canRequestClarification(role) && (
+        {request.status === "in_progress" && canRequestClarification(role, request.createdBy, currentUserId) && (
           <button onClick={() => onUpdateStatus(request._id, "pending_clarification")} disabled={busy} className="btn btn-amber">
             Request clarification
           </button>
         )}
 
         {(request.status === "in_progress" || request.status === "pending_clarification") &&
-          canApproveReject(role, request.department, currentUserDepartment) && (
+          canApproveReject(role, request.department, currentUserDepartment, request.createdBy, currentUserId) && (
             <>
               <button onClick={() => onUpdateStatus(request._id, "approved")} disabled={busy} className="btn btn-green">Approve</button>
               <button onClick={() => onUpdateStatus(request._id, "rejected")} disabled={busy} className="btn btn-red">Reject</button>

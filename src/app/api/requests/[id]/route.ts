@@ -213,7 +213,7 @@ export async function PATCH(
 
     // Only HR/Manager/Admin can set pending_clarification
     if (body.status === "pending_clarification") {
-      if (!canRequestClarification(currentUser.role)) {
+      if (!canRequestClarification(currentUser.role, existingRequest.createdBy, currentUser.userId)) {
         return NextResponse.json(
           { success: false, message: "Forbidden" },
           { status: 403 }
@@ -228,7 +228,7 @@ export async function PATCH(
       }
     }
 
-    if (body.status === "in_progress" && !isResubmitAfterClarification && !canStartProcessing(currentUser.role)) {
+    if (body.status === "in_progress" && !isResubmitAfterClarification && !canStartProcessing(currentUser.role, existingRequest.createdBy, currentUser.userId)) {
       return NextResponse.json(
         { success: false, message: "Forbidden" },
         { status: 403 }
@@ -240,7 +240,9 @@ export async function PATCH(
       !canApproveReject(
         currentUser.role,
         existingRequest.department,
-        currentUser.department
+        currentUser.department,
+        existingRequest.createdBy,
+        currentUser.userId
       )
     ) {
       return NextResponse.json(
@@ -250,6 +252,17 @@ export async function PATCH(
     }
 
     if (
+      (body.status === "approved" || body.status === "rejected") &&
+      existingRequest.status !== "in_progress"
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Only requests that are in progress can be approved or rejected." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      !isResubmitAfterClarification &&
       currentUser.role === "manager" &&
       currentUser.department &&
       existingRequest.department !== currentUser.department

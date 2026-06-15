@@ -78,7 +78,7 @@ export default function RequestsPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           {requests.map(req => (
             <RequestCard key={req._id} request={req} updatingId={updatingId}
-              onUpdateStatus={updateStatus} role={role} currentUserDepartment={currentUserDepartment} />
+              onUpdateStatus={updateStatus} role={role} currentUserDepartment={currentUserDepartment} currentUserId={user?.id} />
           ))}
         </div>
       )}

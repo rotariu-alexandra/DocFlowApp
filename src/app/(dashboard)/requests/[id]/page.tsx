@@ -156,13 +156,13 @@ export default function RequestDetailsPage({ params }: { params: Promise<{ id: s
           {canDeleteOwnRequest(role, request.createdBy, currentUserId, request.status) && (
             <button onClick={handleDelete} className="btn btn-red">Delete</button>
           )}
-          {request.status === "new" && canStartProcessing(role) && (
+          {request.status === "new" && canStartProcessing(role, request.createdBy, currentUserId) && (
             <button onClick={() => updateStatus("in_progress")} disabled={updating} className="btn btn-blue">Start processing</button>
           )}
-          {request.status === "in_progress" && canRequestClarification(role) && (
+          {request.status === "in_progress" && canRequestClarification(role, request.createdBy, currentUserId) && (
             <button onClick={() => updateStatus("pending_clarification")} disabled={updating} className="btn btn-amber">Request clarification</button>
           )}
-          {(request.status === "in_progress" || isPending) && canApproveReject(role, request.department, dept) && (
+          {(request.status === "in_progress" || isPending) && canApproveReject(role, request.department, dept, request.createdBy, currentUserId) && (
             <>
               <button onClick={() => updateStatus("approved")} disabled={updating} className="btn btn-green">Approve</button>
               <button onClick={() => updateStatus("rejected")} disabled={updating} className="btn btn-red">Reject</button>

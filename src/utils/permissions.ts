@@ -1,14 +1,26 @@
 export type UserRole = "employee" | "hr" | "manager" | "admin";
 
-export function canStartProcessing(role?: string) {
-  return role === "hr" || role === "admin";
+export function canStartProcessing(
+  role?: string,
+  createdBy?: string,
+  currentUserId?: string
+) {
+  if (role !== "hr" && role !== "admin") return false;
+  // HR nu poate procesa propria cerere
+  if (role === "hr" && createdBy && currentUserId && createdBy === currentUserId) return false;
+  return true;
 }
 
 export function canApproveReject(
   role?: string,
   requestDepartment?: string,
-  currentUserDepartment?: string
+  currentUserDepartment?: string,
+  createdBy?: string,
+  currentUserId?: string
 ) {
+  // Nimeni nu poate aproba/respinge propria cerere
+  if (createdBy && currentUserId && createdBy === currentUserId && role !== "admin") return false;
+
   if (role === "admin") return true;
   if (role === "manager") return true;
 
@@ -23,8 +35,15 @@ export function canApproveReject(
   return false;
 }
 
-export function canRequestClarification(role?: string) {
-  return role === "hr" || role === "manager" || role === "admin";
+export function canRequestClarification(
+  role?: string,
+  createdBy?: string,
+  currentUserId?: string
+) {
+  if (!["hr", "manager", "admin"].includes(role ?? "")) return false;
+  // HR nu poate cere clarificări pe propria cerere
+  if (role === "hr" && createdBy && currentUserId && createdBy === currentUserId) return false;
+  return true;
 }
 
 export function canManageAllRequests(role?: string) {

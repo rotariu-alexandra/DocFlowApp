@@ -60,7 +60,7 @@ export default function HomePage() {
       </div>
 
       {/* Stat cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px" }}>
+      <div className="stat-cards-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px" }}>
         {statCards.map(s => (
           <div key={s.label} className="card" style={{ padding: "12px 14px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -76,7 +76,7 @@ export default function HomePage() {
       <DashboardCharts departmentStats={data.departmentStats} statusStats={data.statusStats} dailyStats={data.dailyStats} />
 
       {/* Bottom row: Recent Requests (left) + By Department (right) */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: "12px" }}>
+      <div className="bottom-row-grid" style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: "12px" }}>
 
         {/* Recent requests */}
         <div className="card" style={{ padding: "14px 16px" }}>

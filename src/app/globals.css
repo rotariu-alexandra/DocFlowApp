@@ -69,9 +69,7 @@ body {
   box-sizing: border-box;
 }
 
-/* ══════════════════════════════════════
-   BADGE system — adapts light + dark
-═══════════════════════════════════════ */
+/* badge -light/dark*/
 .badge {
   display: inline-flex;
   align-items: center;
@@ -126,9 +124,7 @@ body {
   color: var(--accent-red);
 }
 
-/* ══════════════════════════════════════
-   BUTTON system
-═══════════════════════════════════════ */
+/* btn */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -225,9 +221,7 @@ body {
   text-decoration: underline;
 }
 
-/* ══════════════════════════════════════
-   CARD
-═══════════════════════════════════════ */
+/*card */
 .card {
   background: var(--card-bg);
   border: 0.5px solid var(--card-border);
@@ -235,9 +229,7 @@ body {
   padding: 16px 20px;
 }
 
-/* ══════════════════════════════════════
-   FORM INPUTS — theme-aware
-═══════════════════════════════════════ */
+/* form inputs*/
 .form-input {
   width: 100%;
   font-size: 13px;
@@ -258,9 +250,7 @@ body {
   border-color: var(--accent-red);
 }
 
-/* ══════════════════════════════════════
-   PAGINATION — theme-aware
-═══════════════════════════════════════ */
+/* paginanion */
 .pagination {
   display: flex;
   align-items: center;
@@ -297,9 +287,7 @@ body {
   cursor: not-allowed;
 }
 
-/* ══════════════════════════════════════
-   SEARCH / FILTER BAR — theme-aware
-═══════════════════════════════════════ */
+/* search filter*/
 .filter-bar {
   display: flex;
   flex-direction: column;
@@ -354,4 +342,151 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--muted-bg);
   border-radius: 2px;
+}
+
+
+/* Mobile top bar */
+.mobile-topbar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--sidebar-bg);
+  border-bottom: 0.5px solid var(--sidebar-border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+/* Hamburger button */
+.hamburger-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background .12s;
+}
+
+.hamburger-btn:hover {
+  background: var(--muted-bg);
+}
+
+/* Sidebar overlay (mobile) */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 200;
+}
+
+/* Sidebar drawer on mobile */
+.sidebar-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 220px;
+  z-index: 210;
+  transform: translateX(-100%);
+  transition: transform .22s cubic-bezier(.4, 0, .2, 1);
+}
+
+@media (max-width: 768px) {
+
+  /* Show mobile topbar */
+  .mobile-topbar {
+    display: flex;
+  }
+
+  /* Sidebar becomes a drawer */
+  .sidebar-desktop {
+    display: none !important;
+  }
+
+  .sidebar-overlay.open {
+    display: block;
+  }
+
+  .sidebar-drawer.open {
+    transform: translateX(0);
+  }
+
+  /* Main content full width */
+  .dashboard-main {
+    padding: 20px 16px !important;
+  }
+
+  /* Stat cards: 2 columns on mobile, 1 on very small */
+  .stat-cards-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Bottom row stacks */
+  .bottom-row-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Filter bar wraps */
+  .filter-row {
+    flex-direction: column !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .stat-cards-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .sidebar-drawer {
+    display: none !important;
+  }
+
+  .sidebar-overlay {
+    display: none !important;
+  }
+}
+
+/* Layout fix: desktop sidebar + main in a row */
+@media (min-width: 769px) {
+
+  /* The outer flex column contains topbar (hidden on desktop) + inner row */
+  .dashboard-layout-inner {
+    display: flex;
+    flex: 1;
+  }
+}
+
+/* Ensure sidebar-desktop participates in flex row */
+.sidebar-desktop {
+  flex-shrink: 0;
+}
+
+/* On mobile, the outer flex row becomes a column */
+@media (max-width: 768px) {
+
+  /* The outer layout div switches to column */
+  .dashboard-layout-root {
+    flex-direction: column !important;
+  }
+
+  /* Mobile topbar sticks */
+  .mobile-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    width: 100%;
+  }
+
+  /* Main takes remaining space */
+  .dashboard-layout-root>main {
+    flex: 1;
+  }
 }

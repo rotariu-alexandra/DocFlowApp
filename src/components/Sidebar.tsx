@@ -23,7 +23,11 @@ const getLinksByRole = (role: string | undefined) => {
 
 type NotificationItem = { _id: string; isRead: boolean };
 
-export default function Sidebar() {
+interface SidebarInnerProps {
+  onClose?: () => void;
+}
+
+function SidebarInner({ onClose }: SidebarInnerProps) {
   const pathname = usePathname();
   const { user, isLoaded } = useUser();
   const role =
@@ -67,17 +71,39 @@ export default function Sidebar() {
     };
   }, [isLoaded, user?.id]);
 
-  const initials = user?.fullName
-    ? user.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
-    : "U";
+  const linkStyle = (active: boolean) => ({
+    display: "flex", alignItems: "center", gap: "9px",
+    padding: "7px 10px", borderRadius: "8px",
+    fontSize: "13px",
+    color: active ? "var(--foreground)" : "var(--muted)",
+    fontWeight: active ? 500 : 400,
+    background: active ? "var(--muted-bg)" : "transparent",
+    textDecoration: "none", transition: "background .12s, color .12s",
+  } as React.CSSProperties);
+
+  const handleLinkMouseEnter = (e: React.MouseEvent<HTMLAnchorElement>, active: boolean) => {
+    if (!active) {
+      (e.currentTarget as HTMLElement).style.background = "var(--muted-bg)";
+      (e.currentTarget as HTMLElement).style.color = "var(--foreground)";
+    }
+  };
+  const handleLinkMouseLeave = (e: React.MouseEvent<HTMLAnchorElement>, active: boolean) => {
+    if (!active) {
+      (e.currentTarget as HTMLElement).style.background = "transparent";
+      (e.currentTarget as HTMLElement).style.color = "var(--muted)";
+    }
+  };
+
+  const sectionLabel: React.CSSProperties = {
+    fontSize: "10px", fontWeight: 500, color: "var(--muted)",
+    letterSpacing: ".06em", textTransform: "uppercase", padding: "10px 8px 4px",
+  };
 
   return (
-    <aside
-      className="flex flex-col"
+    <div
       style={{
-        width: "220px",
-        minWidth: "220px",
-        minHeight: "100vh",
+        display: "flex", flexDirection: "column",
+        width: "220px", minWidth: "220px", height: "100%",
         background: "var(--sidebar-bg)",
         borderRight: "0.5px solid var(--sidebar-border)",
       }}
@@ -99,14 +125,27 @@ export default function Sidebar() {
             <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--foreground)", lineHeight: 1.2 }}>DocuFlow</div>
             <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "1px" }}>Document management</div>
           </div>
+          {/* Close button — only visible in drawer mode */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              aria-label="Close menu"
+              style={{
+                marginLeft: "auto", background: "none", border: "none",
+                cursor: "pointer", color: "var(--muted)", fontSize: "18px",
+                display: "flex", alignItems: "center", padding: "2px",
+                borderRadius: "6px",
+              }}
+            >
+              <i className="ti ti-x" aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: "10px 8px", display: "flex", flexDirection: "column", gap: "2px" }}>
-        <div style={{ fontSize: "10px", fontWeight: 500, color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase", padding: "10px 8px 4px" }}>
-          Main
-        </div>
+        <div style={sectionLabel}>Main</div>
 
         {links.slice(0, 3).map((link) => {
           const isActive = pathname === link.href;
@@ -114,17 +153,10 @@ export default function Sidebar() {
             <Link
               key={link.href}
               href={link.href}
-              style={{
-                display: "flex", alignItems: "center", gap: "9px",
-                padding: "7px 10px", borderRadius: "8px",
-                fontSize: "13px",
-                color: isActive ? "var(--foreground)" : "var(--muted)",
-                fontWeight: isActive ? 500 : 400,
-                background: isActive ? "var(--muted-bg)" : "transparent",
-                textDecoration: "none", transition: "background .12s, color .12s",
-              }}
-              onMouseEnter={(e) => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "var(--muted-bg)"; (e.currentTarget as HTMLElement).style.color = "var(--foreground)"; } }}
-              onMouseLeave={(e) => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "var(--muted)"; } }}
+              style={linkStyle(isActive)}
+              onMouseEnter={(e) => handleLinkMouseEnter(e, isActive)}
+              onMouseLeave={(e) => handleLinkMouseLeave(e, isActive)}
+              onClick={onClose}
             >
               <i className={`ti ${link.icon}`} style={{ fontSize: "16px", width: "16px" }} aria-hidden="true" />
               {link.label}
@@ -134,22 +166,13 @@ export default function Sidebar() {
 
         {role && ["hr", "manager", "admin"].includes(role) && (
           <>
-            <div style={{ fontSize: "10px", fontWeight: 500, color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase", padding: "12px 8px 4px" }}>
-              Management
-            </div>
+            <div style={{ ...sectionLabel, paddingTop: "12px" }}>Management</div>
             <Link
               href="/requests"
-              style={{
-                display: "flex", alignItems: "center", gap: "9px",
-                padding: "7px 10px", borderRadius: "8px",
-                fontSize: "13px",
-                color: pathname === "/requests" ? "var(--foreground)" : "var(--muted)",
-                fontWeight: pathname === "/requests" ? 500 : 400,
-                background: pathname === "/requests" ? "var(--muted-bg)" : "transparent",
-                textDecoration: "none", transition: "background .12s, color .12s",
-              }}
-              onMouseEnter={(e) => { if (pathname !== "/requests") { (e.currentTarget as HTMLElement).style.background = "var(--muted-bg)"; (e.currentTarget as HTMLElement).style.color = "var(--foreground)"; } }}
-              onMouseLeave={(e) => { if (pathname !== "/requests") { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "var(--muted)"; } }}
+              style={linkStyle(pathname === "/requests")}
+              onMouseEnter={(e) => handleLinkMouseEnter(e, pathname === "/requests")}
+              onMouseLeave={(e) => handleLinkMouseLeave(e, pathname === "/requests")}
+              onClick={onClose}
             >
               <i className="ti ti-list-details" style={{ fontSize: "16px", width: "16px" }} aria-hidden="true" />
               All requests
@@ -157,23 +180,14 @@ export default function Sidebar() {
           </>
         )}
 
-        <div style={{ fontSize: "10px", fontWeight: 500, color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase", padding: "12px 8px 4px" }}>
-          Account
-        </div>
+        <div style={{ ...sectionLabel, paddingTop: "12px" }}>Account</div>
 
         <Link
           href="/notifications"
-          style={{
-            display: "flex", alignItems: "center", gap: "9px",
-            padding: "7px 10px", borderRadius: "8px",
-            fontSize: "13px",
-            color: pathname === "/notifications" ? "var(--foreground)" : "var(--muted)",
-            fontWeight: pathname === "/notifications" ? 500 : 400,
-            background: pathname === "/notifications" ? "var(--muted-bg)" : "transparent",
-            textDecoration: "none", transition: "background .12s, color .12s",
-          }}
-          onMouseEnter={(e) => { if (pathname !== "/notifications") { (e.currentTarget as HTMLElement).style.background = "var(--muted-bg)"; (e.currentTarget as HTMLElement).style.color = "var(--foreground)"; } }}
-          onMouseLeave={(e) => { if (pathname !== "/notifications") { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "var(--muted)"; } }}
+          style={linkStyle(pathname === "/notifications")}
+          onMouseEnter={(e) => handleLinkMouseEnter(e, pathname === "/notifications")}
+          onMouseLeave={(e) => handleLinkMouseLeave(e, pathname === "/notifications")}
+          onClick={onClose}
         >
           <i className="ti ti-bell" style={{ fontSize: "16px", width: "16px" }} aria-hidden="true" />
           Notifications
@@ -204,6 +218,93 @@ export default function Sidebar() {
           </div>
         </div>
       </div>
-    </aside>
+    </div>
+  );
+}
+
+export default function Sidebar() {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { user } = useUser();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Close drawer on resize to desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) setDrawerOpen(false);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Prevent body scroll when drawer open
+  useEffect(() => {
+    document.body.style.overflow = drawerOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [drawerOpen]);
+
+  // Fetch unread for topbar badge
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/notifications", { cache: "no-store" })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) setUnreadCount((d.data as { isRead: boolean }[]).filter(n => !n.isRead).length);
+      })
+      .catch(() => { });
+  }, [user?.id]);
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="sidebar-desktop" style={{ flexShrink: 0 }}>
+        <div style={{ position: "sticky", top: 0, height: "100vh", overflowY: "auto" }}>
+          <SidebarInner />
+        </div>
+      </aside>
+
+      {/* Mobile top bar */}
+      <header className="mobile-topbar">
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <button
+            className="hamburger-btn"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={drawerOpen}
+          >
+            <i className="ti ti-menu-2" style={{ fontSize: "20px" }} aria-hidden="true" />
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{
+              width: "24px", height: "24px", borderRadius: "6px",
+              background: "var(--foreground)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <i className="ti ti-file-description" style={{ fontSize: "12px", color: "var(--background)" }} aria-hidden="true" />
+            </div>
+            <span style={{ fontSize: "14px", fontWeight: 500, color: "var(--foreground)" }}>DocuFlow</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {unreadCount > 0 && (
+            <span style={{ background: "#e24b4a", color: "#fff", fontSize: "10px", fontWeight: 500, padding: "2px 7px", borderRadius: "10px" }}>
+              {unreadCount}
+            </span>
+          )}
+          <UserButton />
+        </div>
+      </header>
+
+      {/* Mobile overlay */}
+      <div
+        className={`sidebar-overlay${drawerOpen ? " open" : ""}`}
+        onClick={() => setDrawerOpen(false)}
+        aria-hidden="true"
+      />
+
+      {/* Mobile drawer */}
+      <div className={`sidebar-drawer${drawerOpen ? " open" : ""}`}>
+        <SidebarInner onClose={() => setDrawerOpen(false)} />
+      </div>
+    </>
   );
 }

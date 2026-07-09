@@ -1,38 +1,20 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
 import PriorityBadge from "@/components/PriorityBadge";
 import DashboardCharts from "@/components/DashboardCharts";
 import ExportPdfButton from "@/components/ExportPdfButton";
-import { useUser } from "@clerk/nextjs";
+import { getDashboardData } from "@/lib/dashboard";
+import { getCurrentUserRoleAndDepartment } from "@/lib/auth";
 
-type RequestItem = { _id: string; title: string; department: string; status: string; priority: string };
-type DashboardData = {
-  totalRequests: number; newRequests: number; inProgressRequests: number;
-  approvedRequests: number; rejectedRequests: number;
-  recentRequests: RequestItem[];
-  departmentStats: { department: string; count: number }[];
-  statusStats: { status: string; count: number }[];
-  dailyStats: { date: string; count: number }[];
-};
+export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  const { user } = useUser();
-  const role = typeof user?.publicMetadata?.role === "string" ? user.publicMetadata.role.toLowerCase() : undefined;
-  const canExport = role && ["hr", "manager", "admin"].includes(role);
+export default async function HomePage() {
+  const currentUser = await getCurrentUserRoleAndDepartment();
+  const role = currentUser?.role;
+  const canExport = !!role && ["hr", "manager", "admin"].includes(role);
 
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/dashboard").then(r => r.json()).then(d => { if (d.success) setData(d.data); }).catch(console.error).finally(() => setLoading(false));
-  }, []);
-
-  if (loading) return <div style={{ color: "var(--muted)", fontSize: "13px" }}>Loading…</div>;
-  if (!data) return <div style={{ color: "var(--muted)", fontSize: "13px" }}>No data.</div>;
+  const data = await getDashboardData();
 
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const statCards = [
@@ -75,17 +57,14 @@ export default function HomePage() {
       {/* Chart */}
       <DashboardCharts departmentStats={data.departmentStats} statusStats={data.statusStats} dailyStats={data.dailyStats} />
 
-      {/* Bottom row: Recent Requests (left) + By Department (right) */}
+      {/* Bottom row: Recent Requests + By Department */}
       <div className="bottom-row-grid" style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: "12px" }}>
 
         {/* Recent requests */}
         <div className="card" style={{ padding: "14px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
             <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--foreground)", margin: 0 }}>Recent requests</p>
-            <Link href="/requests" className="btn btn-link"
-              onMouseEnter={e => ((e.target as HTMLElement).style.textDecoration = "underline")}
-              onMouseLeave={e => ((e.target as HTMLElement).style.textDecoration = "none")}
-            >View all →</Link>
+            <Link href="/requests" className="btn btn-link">View all →</Link>
           </div>
           {data.recentRequests.length === 0 ? (
             <p style={{ fontSize: "13px", color: "var(--muted)" }}>No recent requests.</p>
